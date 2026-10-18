@@ -1,0 +1,25 @@
+{
+  "url": "http://ADRESSE-DE-LA-PLATEFORME/api/agent",
+  "sql": {
+    "server": "SERVEUR\\INSTANCE",
+    "trustServerCertificate": true
+  },
+  "update": { "auto": true, "window": "03:00-05:00" },
+  "bindings": [
+    {
+      "name": "client-a",
+      "code": "AAAA-BBBB-CCCC",
+      "sql": { "database": "SAGE_CLIENT_A", "user": "agent_client_a", "password": "" }
+    },
+    {
+      "name": "client-b",
+      "code": "DDDD-EEEE-FFFF",
+      "sql": { "database": "SAGE_CLIENT_B", "user": "agent_client_b", "password": "" }
+    },
+    {
+      "name": "client-c",
+      "code": "GGGG-HHHH-JJJJ",
+      "sql": { "server": "SERVEUR\\AUTRE_INSTANCE", "database": "SAGE_CLIENT_C", "auth": "windows" }
+    }
+  ]
+}

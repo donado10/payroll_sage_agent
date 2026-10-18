@@ -1,0 +1,17 @@
+<Project>
+  <!-- Every project of the solution. A setting that differs per project goes in that .csproj. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <Company>IGF</Company>
+    <Product>Agent Sage — IGF Paie</Product>
+    <!-- X-Agent-Version: the agent's build version, sent on every call and shown on the platform. -->
+    <Version>0.5.1</Version>
+  </PropertyGroup>
+</Project>

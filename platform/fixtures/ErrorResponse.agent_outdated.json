@@ -1,0 +1,7 @@
+{
+	"error": {
+		"code": "agent_outdated",
+		"message": "Cette version de l’agent n’est plus acceptée : mettez l’agent à jour.",
+		"minimumVersion": "0.5.0"
+	}
+}

@@ -1,0 +1,214 @@
+IGF Paie — Agent Sage {{VERSION}} (protocole v{{PROTOCOL}})
+=====================================================
+
+L'agent relie les sociétés Sage 100 de CE serveur à la plateforme IGF Paie : il lit le plan
+comptable (F_COMPTEG) quand la plateforme le demande, et le lui envoie. Il n'écrit rien dans Sage.
+Il APPELLE la plateforme ; il n'ouvre aucun port sur ce serveur.
+
+Un agent par serveur Windows, même s'il porte plusieurs instances SQL Server : chaque base Sage
+reliée est une « liaison », qui dit sur quelle instance elle lit (SERVEUR\INSTANCE), avec son propre
+code d'appairage et sa propre société sur la plateforme. Une liaison ne voit jamais une autre.
+
+
+1. Avant de commencer
+---------------------
+
+- Windows Server 2016 ou plus récent, 64 bits. Rien d'autre à installer : .NET est inclus.
+- Ce serveur doit joindre l'adresse de la plateforme (celle que l'écran Agent Sage affiche),
+  en sortie, en HTTP ou HTTPS.
+- Un accès à chaque base Sage, au choix :
+  a) un COMPTE SQL — n'importe lequel qui lit la base, sa compris ; l'agent dit ce qu'il peut faire
+     d'autre. Sur un serveur qui héberge plusieurs clients, un compte dédié par base, en lecture
+     seule, reste préférable : compte-sql-lecture.sql le crée (SSMS › Requête › Mode SQLCMD) ;
+  b) l'AUTHENTIFICATION WINDOWS — aucun mot de passe : c'est le compte du service qui se connecte.
+     acces-windows.sql lui ouvre la base : NT SERVICE\PayrollSageAgent si SQL Server est sur ce
+     serveur, DOMAINE\NOM-DE-CE-SERVEUR$ si SQL Server est sur un autre serveur du domaine. Hors
+     domaine, d'un serveur à l'autre, c'est impossible : prenez un compte SQL.
+
+[!] Pour l'instant l'adresse peut être en HTTP. En HTTP, le code d'appairage, le jeton de la liaison
+    et le plan comptable circulent EN CLAIR sur le réseau — sur Internet, quiconque est sur le chemin
+    peut les lire. HTTPS viendra.
+
+[!] Version de développement : le programme n'est pas encore signé. Windows peut afficher « Windows
+    a protégé votre ordinateur » : « Informations complémentaires » › « Exécuter quand même ».
+
+
+2. Installer, puis relier les bases — sans console
+--------------------------------------------------
+
+a) Double-cliquez sur PayrollSageAgent-{{VERSION}}-x64.msi. Le service « IGF Paie - Agent Sage » est
+   installé et démarré, et le dossier de l'agent — C:\Program Files\IGF\PayrollSageAgent — contient :
+
+     agent.json              la configuration : les bases que l'agent doit relier (vide au départ),
+                             et comment il se met à jour (« update »)
+     Configurer-agent.bat    ouvre agent.json dans le Bloc-notes, en administrateur
+     Redemarrer-agent.bat    applique agent.json, redémarre l'agent, et affiche la réponse
+     Mettre-a-jour-agent.bat installe tout de suite la dernière version publiée (section 3)
+     compte-sql-lecture.sql  crée le compte SQL de l'agent (un compte en lecture par base)
+     acces-windows.sql       ou : donne l'accès au compte Windows du service (authentification Windows)
+     exemple-liaison.json, exemple-plusieurs-liaisons.json    des modèles à recopier
+
+b) Sur la plateforme : Intégration › Passation comptable › ERPs › menu de l'ERP Sage ›
+   « Agent Sage » › « Générer un code d'appairage » — un code par société (15 minutes, une fois).
+   L'écran donne aussi l'ADRESSE de l'agent (« url »), et l'ENTRÉE toute prête à coller dans
+   agent.json, le code déjà dedans (« Copier l'entrée pour agent.json ») : il reste la base et le
+   compte à compléter. Le même écran télécharge le MSI (« Télécharger l'agent »).
+
+c) Double-cliquez sur Configurer-agent.bat. Dans agent.json, ajoutez vos bases dans « bindings »
+   (modèle : exemple-plusieurs-liaisons.json) : pour chacune son nom, son code, sa base, son compte.
+   Ce que les bases partagent (l'adresse, le serveur, le compte…) se met une fois en haut. Dans un
+   fichier JSON, une barre oblique inverse s'écrit DEUX fois : "SERVEUR\\INSTANCE". Enregistrez.
+
+d) Double-cliquez sur Redemarrer-agent.bat. L'agent applique agent.json, redémarre, et affiche ce qu'il
+   a fait — la même réponse est écrite dans agent.result.txt. La plateforme passe à « En ligne ».
+
+   Ce que l'agent fait du fichier : un code utilisé devient "" (un code ne sert qu'une fois), un mot de
+   passe qu'il a protégé devient "(protégé)" — il n'en reste aucun en clair sur le disque. Le fichier
+   reste la liste de ce qui est relié.
+
+   Le fichier est vérifié en entier d'abord : une ligne mal écrite, et rien n'est fait — la réponse
+   dit tout ce qui ne va pas. Ensuite chaque base réussit ou échoue seule.
+
+e) Plus tard, dans agent.json, puis Redemarrer-agent.bat :
+   - une nouvelle base     : une entrée de plus, avec son code ;
+   - un nouveau mot de passe : tapez-le à la place de "(protégé)" ;
+   - délier une base       : ajoutez "remove": true à son entrée (elle quittera le fichier) ;
+   - relier de nouveau une base révoquée sur la plateforme : un nouveau code dans son entrée.
+   Une base que le fichier ne nomme pas n'est jamais touchée.
+
+   Variante : posez un agent.json À CÔTÉ du MSI avant le double-clic — il devient la configuration et
+   s'applique tout de suite (réponse dans agent.result.txt, à côté du MSI).
+
+Une seule chose ne se fait pas par le fichier : avec l'authentification Windows ("auth": "windows"),
+l'administrateur de SQL Server donne d'abord l'accès au compte du service — acces-windows.sql, dans
+SSMS. Avec un compte SQL, compte-sql-lecture.sql crée le compte ; ou prenez un compte existant.
+
+Un autre nom dans services.msc (par exemple pour reconnaître le serveur) : en ligne de commande,
+msiexec /i PayrollSageAgent-{{VERSION}}-x64.msi AGENTLABEL="IGF Paie - Agent Sage (Cabinet X)", ou
+PayrollSageAgent.exe set-label --label "…" une fois installé. Le libellé est gardé par les mises à
+jour ; le nom interne du service reste PayrollSageAgent.
+
+Un MSI plus récent MET À JOUR l'agent et garde ses liaisons et agent.json — c'est aussi ce que fait
+l'agent tout seul (section 3). Si l'installation d'une version échoue, Windows revient de lui-même à
+celle d'avant. Désinstaller : Paramètres › Applications installées › « IGF Paie - Agent Sage » —
+chaque base est déliée auprès de la plateforme, ses secrets, agent.json et le dossier update effacés
+(les journaux restent).
+
+Sans MSI (le .zip, pour le développement) : débloquer le zip (Propriétés › « Débloquer »),
+l'extraire, puis dans une console PowerShell EN TANT QU'ADMINISTRATEUR :
+powershell -ExecutionPolicy Bypass -File .\install.ps1. Passer du zip au MSI sans tout refaire :
+uninstall.ps1 -KeepData (le service part, les liaisons restent), puis le MSI, qui les reprend.
+
+
+3. Les mises à jour — l'agent les installe seul
+-----------------------------------------------
+
+Toutes les heures, une tâche planifiée (« \IGF\PayrollSageAgent-MiseAJour », compte SYSTEM, créée
+par le MSI) demande à la plateforme s'il existe une version plus récente. Si oui, l'agent la
+télécharge, vérifie sa taille et son empreinte SHA-256, l'installe — et attend que le nouveau
+service se reconnecte à la plateforme. S'il ne se reconnecte pas dans les 5 minutes, l'agent revient
+de lui-même à la version d'avant, et ne retente pas cette version avant 20 heures.
+
+Quand : dans la plage horaire d'agent.json, l'heure de CE serveur — 03:00 à 05:00 par défaut :
+
+    "update": { "auto": true, "window": "03:00-05:00" },
+
+  - une autre plage : "window": "22:00-02:00" (à cheval sur minuit, une heure au moins) ;
+  - plus d'installation automatique : "auto": false — la plateforme continue de dire qu'une version
+    est disponible, et Mettre-a-jour-agent.bat l'installe quand vous le décidez (un hébergeur qui
+    veut choisir son créneau de maintenance) ;
+  - puis Redemarrer-agent.bat, qui applique le réglage et le confirme.
+
+Sans attendre : double-cliquez sur Mettre-a-jour-agent.bat — il installe la dernière version tout de
+suite et affiche chaque étape.
+
+Si la plateforme n'accepte plus la version installée (« agent à mettre à jour » sur son écran),
+l'agent s'installe la nouvelle version à la vérification suivante, sans attendre sa plage — sauf avec
+"auto": false, où il faut lancer Mettre-a-jour-agent.bat.
+
+La plateforme montre, pour chaque base reliée : la version de l'agent, s'il en existe une plus
+récente, la plage horaire, la dernière vérification et la dernière tentative (installée, échouée,
+revenue à la version d'avant).
+
+Le dossier C:\Program Files\IGF\PayrollSageAgent\update tient tout cela : le MSI installé (pour
+revenir en arrière), les journaux de chaque installation (install-X.Y.Z.log), et une copie de
+l'agent (runner-X.Y.Z) — c'est elle qui lance l'installation, car l'installation remplace le
+programme lui-même. Ne le supprimez pas.
+
+[!] Version de développement : le MSI n'est pas signé, et l'agent ne vérifie que l'empreinte. En
+    HTTP, une mise à jour est aussi sûre que le réseau qui la transporte. Une fois l'agent signé, il
+    n'installera plus qu'une version signée par le même éditeur.
+
+
+4. À la console, si vous préférez
+---------------------------------
+
+    cd "C:\Program Files\IGF\PayrollSageAgent"
+    .\PayrollSageAgent.exe add-binding --config C:\chemin\agent.json     (mot de passe demandé, masqué)
+    .\PayrollSageAgent.exe add-binding --name prestige --url http://ADRESSE/api/agent `
+        --code ABCD-EFGH-JKLM --sql-server "SRV-SAGE\SAGE100" --database PRESTIGE `
+        --sql-user agent_prestige --trust-server-certificate
+    (ou --windows-auth à la place de --sql-user)
+
+   - --name : un nom à vous, en minuscules (lettres, chiffres, tirets).
+   - --sql-server : SERVEUR\INSTANCE, ou SERVEUR,PORT.
+   - --trust-server-certificate : nécessaire si SQL Server garde le certificat auto-signé de son
+     installation (le cas de la plupart des serveurs Sage). L'agent le dit s'il en a besoin.
+
+Vérifier l'accès SQL SEUL, sans code ni liaison (le code n'expire pas pendant vos essais) :
+
+    .\PayrollSageAgent.exe check-sql --sql-server "SRV-SAGE\SAGE100" --database PRESTIGE `
+        --sql-user agent_prestige --trust-server-certificate
+    .\PayrollSageAgent.exe check-sql --sql-server "SRV-SAGE\SAGE100" --database PRESTIGE --windows-auth
+
+Autres commandes :
+
+    .\PayrollSageAgent.exe list-bindings                  les liaisons de cet agent
+    (la mise à jour, elle, se lance avec Mettre-a-jour-agent.bat : jamais depuis l'exe installé)
+    .\PayrollSageAgent.exe check-sql --name prestige      revérifier l'accès SQL d'une liaison
+    .\PayrollSageAgent.exe remove-binding --name prestige délier une base, effacer ses secrets
+    .\PayrollSageAgent.exe help
+
+Codes de sortie : 0 fait · 2 commande incomplète · 3 accès SQL refusé · 4 refusé par la plateforme
+                  · 5 plateforme injoignable · 6 à lancer en administrateur · 7 le service ne répond pas
+
+
+5. En cas de problème
+---------------------
+
+Les journaux : C:\ProgramData\IGF\PayrollSageAgent\logs  (un fichier par jour, 30 jours gardés).
+Le service y écrit, et chaque commande (add-binding, check-sql…) y recopie ce qu'elle affiche.
+C'est ce dossier — et lui seul — à nous envoyer. Il ne contient ni mot de passe, ni jeton, ni compte.
+
+Un refus est une phrase, suivie d'une ligne « Détail : » qui est l'erreur de SQL Server elle-même
+(numéro et texte) — c'est elle qui nous dit ce qui se passe.
+
+« Instance introuvable » / « ne répond pas » avec SERVEUR\INSTANCE :
+  - le service « SQL Server Browser » doit être démarré (services.msc) ;
+  - le protocole TCP/IP doit être activé pour l'instance : SQLServerManager15.msc (SQL Server 2019)
+    › Configuration du réseau SQL Server › Protocoles pour INSTANCE › TCP/IP ; puis redémarrer le
+    service SQL Server de l'instance ;
+  - ou donnez directement le port : --sql-server "localhost,PORT" (le port : même écran, TCP/IP ›
+    Propriétés › Adresses IP › IPAll).
+
+« Compte SQL refusé », « mot de passe à changer », « expiré », ou « la connexion a été fermée pendant
+l'ouverture de session » : le journal de SQL Server dit pourquoi, en clair —
+
+    EXEC xp_readerrorlog 0, 1, N'Login failed';
+
+  - mot de passe à changer ou expiré : redéfinissez-le dans SSMS (Sécurité › Connexions › le compte
+    › Propriétés), en décochant « doit changer à la prochaine connexion » et « Appliquer
+    l'expiration » — ou relancez compte-sql-lecture.sql, qui le fait ;
+  - instance en authentification Windows seule : Propriétés du serveur › Sécurité › « Mode
+    d'authentification SQL Server et Windows », puis redémarrer le service SQL Server.
+
+Authentification Windows refusée : l'identité que l'agent annonce (NT SERVICE\PayrollSageAgent, ou
+DOMAINE\SERVEUR$ vers un autre serveur) doit avoir une connexion et un utilisateur dans la base —
+acces-windows.sql. « SSPI » : hors domaine, impossible d'un serveur à l'autre ; prenez un compte SQL.
+
+N'envoyez JAMAIS le dossier « bindings » : il contient les secrets des liaisons (protégés par Windows
+pour CE serveur, mais à ne pas faire circuler).
+
+Le service : services.msc › « IGF Paie - Agent Sage ». Windows le redémarre s'il s'arrête sur une
+erreur. Il tourne sous son propre compte, NT SERVICE\PayrollSageAgent, sans aucun droit au-delà de
+son dossier.

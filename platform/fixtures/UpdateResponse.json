@@ -1,0 +1,12 @@
+{
+	"latest": {
+		"version": "0.5.1",
+		"protocol": 0,
+		"sha256": "2e471e4846ae5e077f02e504bcb94ed8f5e332a7de49a677f52d201db8d2d656",
+		"bytes": 39199232,
+		"signed": false,
+		"publishedAt": "2026-10-19T09:30:00+00:00"
+	},
+	"minimumVersion": "0.5.0",
+	"outdated": false
+}

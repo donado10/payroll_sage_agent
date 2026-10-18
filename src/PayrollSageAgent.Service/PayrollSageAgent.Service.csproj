@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <!-- The one executable: the Windows service, and its add-binding / remove-binding / list-bindings
+       verbs. Runs on Linux too, in Docker, for development: UseWindowsService is a no-op there, and
+       secrets fall to an explicitly INSECURE development stand-in (Secrets/DevSecretProtector.cs). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>PayrollSageAgent</AssemblyName>
+    <RootNamespace>PayrollSageAgent.Service</RootNamespace>
+    <!-- LibraryImport's generated marshalling (WinVerifyTrust, Update/WindowsUpdateMachine.cs) is unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../PayrollSageAgent.Core/PayrollSageAgent.Core.csproj" />
+    <ProjectReference Include="../PayrollSageAgent.Sage/PayrollSageAgent.Sage.csproj" />
+  </ItemGroup>
+</Project>

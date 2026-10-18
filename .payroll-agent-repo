@@ -1,0 +1,2 @@
+This file marks the root of the Sage agent repo. igf_payroll's `npm run agent:handoff` writes
+`platform/` only into a directory that carries it, and the tests find the repo root by it.

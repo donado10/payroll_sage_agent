@@ -1,0 +1,6 @@
+{
+	"jobId": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
+	"attempt": 1,
+	"error": { "code": "sql_unreachable", "message": "Le serveur SQL ne répond pas (délai de 30 s dépassé)." },
+	"retryable": true
+}

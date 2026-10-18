@@ -1,0 +1,37 @@
+# .NET build output
+bin/
+obj/
+artifacts/
+TestResults/
+*.user
+.vs/
+
+# NuGet cache of scripts/dotnet.sh (the SDK runs in a container)
+.nuget-cache/
+
+# The agent's home in development runs (PAYROLL_AGENT_HOME=/repo/.agent-home): its bindings and secrets.
+.agent-home/
+
+# SQL Server backups — a client's books. Never committed, anywhere.
+*.bak
+test/sage/backups/*
+!test/sage/backups/README.md
+
+# env — commit .env.example only, never a populated file
+.env
+.env.*
+!.env.example
+
+# keys and certificates — the signing certificate never enters the repo
+*.pfx
+*.p12
+*.pem
+*.snk
+
+# personal Claude Code settings
+.claude/settings.local.json
+
+.DS_Store
+
+# The Windows package (scripts/package.sh).
+dist/

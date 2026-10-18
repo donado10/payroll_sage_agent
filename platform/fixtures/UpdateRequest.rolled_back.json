@@ -1,0 +1,10 @@
+{
+	"auto": true,
+	"window": "22:00-02:00",
+	"last": {
+		"version": "0.5.1",
+		"outcome": "rolled_back",
+		"at": "2026-10-19T22:14:40+00:00",
+		"message": "La version 0.5.1 ne s’est pas reconnectée à la plateforme dans les 5 minutes : l’agent est revenu à la 0.5.0."
+	}
+}

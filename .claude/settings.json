@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "additionalDirectories": ["/home/igf/igf_payroll"],
+    "allow": [
+      "Bash(./scripts/dotnet.sh *)",
+      "Bash(scripts/dotnet.sh *)",
+      "Bash(./scripts/check.sh)",
+      "Bash(scripts/check.sh)",
+      "Bash(./scripts/run-service.sh)",
+      "Bash(scripts/run-service.sh)",
+      "Bash(test/sage/setup.sh)",
+      "Bash(./test/sage/setup.sh)",
+      "Bash(./scripts/platform-status.sh)",
+      "Bash(scripts/platform-status.sh)",
+      "Bash(npm --prefix /home/igf/igf_payroll run agent:handoff)",
+      "Bash(npm --prefix /home/igf/igf_payroll run agent:handoff -- --status)"
+    ],
+    "deny": [
+      "Edit(//home/igf/igf_payroll/**)",
+      "Edit(/platform/**)",
+      "Read(/test/sage/backups/**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/platform-status.sh" }]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/platform-status.sh" }]
+      },
+      {
+        "matcher": "clear",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/platform-status.sh" }]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/platform-status.sh" }]
+      }
+    ]
+  }
+}

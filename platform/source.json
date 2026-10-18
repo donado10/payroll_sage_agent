@@ -1,0 +1,11 @@
+{
+	"generatedBy": "igf_payroll · npm run agent:handoff — do not edit",
+	"protocol": 0,
+	"minimumSupported": 0,
+	"contractHash": "e253a1b0ba667ab42892b1a95d3546ce301a21438332f226ae661864b93b6996",
+	"sourceHash": "9be3dabcbc900f84975392cb09e401468ebeaa418f6cd48a972727736e0b0561",
+	"sourceCommit": "b603cd1",
+	"sourceBranch": "b-1",
+	"sourceDirty": true,
+	"exportedAt": "2026-10-18T12:43:09.338Z"
+}

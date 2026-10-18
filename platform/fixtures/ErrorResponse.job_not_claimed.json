@@ -1,0 +1,3 @@
+{
+	"error": { "code": "job_not_claimed", "message": "Ce travail n’est plus confié à cet agent (délai dépassé ou déjà rendu)." }
+}

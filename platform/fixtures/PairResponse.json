@@ -1,0 +1,8 @@
+{
+	"bindingId": "6f1d3c2a-9b4e-4f6a-8c1d-2e3f4a5b6c7d",
+	"endpoint": "https://agents.example.com/api/agent",
+	"token": "igfa_EXAMPLE_0000000000000000000000000000000000",
+	"company": { "name": "Société exemple SA" },
+	"connection": { "id": "0b8e7d6c-5a4f-4e3d-9c2b-1a0f9e8d7c6b", "name": "Sage 100 — comptabilité", "kind": "sage100" },
+	"pollSeconds": 15
+}

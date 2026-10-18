@@ -1,0 +1,632 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://igf-payroll/agent-protocol/v0.schema.json",
+	"title": "IGF payroll — Sage agent protocol v0",
+	"description": "GENERATED from packages/app-core/src/schemas/agent-protocol.ts by `npm run check:agent-protocol -- --freeze`. Never edit by hand.",
+	"$defs": {
+		"PairRequest": {
+			"type": "object",
+			"properties": {
+				"code": {
+					"type": "string",
+					"pattern": "^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}$"
+				}
+			},
+			"required": [
+				"code"
+			],
+			"additionalProperties": false
+		},
+		"PairResponse": {
+			"type": "object",
+			"properties": {
+				"bindingId": {
+					"type": "string",
+					"format": "uuid",
+					"pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+				},
+				"endpoint": {
+					"type": "string",
+					"format": "uri"
+				},
+				"token": {
+					"type": "string",
+					"minLength": 37,
+					"pattern": "^igfa_.*"
+				},
+				"company": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+							"minLength": 1
+						}
+					},
+					"required": [
+						"name"
+					],
+					"additionalProperties": {}
+				},
+				"connection": {
+					"type": "object",
+					"properties": {
+						"id": {
+							"type": "string",
+							"format": "uuid",
+							"pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1
+						},
+						"kind": {
+							"type": "string",
+							"const": "sage100"
+						}
+					},
+					"required": [
+						"id",
+						"name",
+						"kind"
+					],
+					"additionalProperties": {}
+				},
+				"pollSeconds": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 9007199254740991
+				}
+			},
+			"required": [
+				"bindingId",
+				"endpoint",
+				"token",
+				"company",
+				"connection",
+				"pollSeconds"
+			],
+			"additionalProperties": {}
+		},
+		"UnpairRequest": {
+			"type": "object",
+			"properties": {},
+			"additionalProperties": false
+		},
+		"OfflineRequest": {
+			"type": "object",
+			"properties": {},
+			"additionalProperties": false
+		},
+		"ClaimRequest": {
+			"type": "object",
+			"properties": {},
+			"additionalProperties": false
+		},
+		"ClaimResponse": {
+			"type": "object",
+			"properties": {
+				"job": {
+					"anyOf": [
+						{
+							"oneOf": [
+								{
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "string",
+											"format": "uuid",
+											"pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+										},
+										"type": {
+											"type": "string",
+											"const": "sync_gl_accounts"
+										},
+										"attempt": {
+											"type": "integer",
+											"minimum": 1,
+											"maximum": 9007199254740991
+										},
+										"leaseExpiresAt": {
+											"type": "string",
+											"format": "date-time",
+											"pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+										},
+										"payload": {
+											"type": "object",
+											"properties": {},
+											"additionalProperties": {}
+										}
+									},
+									"required": [
+										"id",
+										"type",
+										"attempt",
+										"leaseExpiresAt",
+										"payload"
+									],
+									"additionalProperties": {}
+								}
+							]
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"pollSeconds": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 9007199254740991
+				}
+			},
+			"required": [
+				"job",
+				"pollSeconds"
+			],
+			"additionalProperties": {}
+		},
+		"CompleteRequest": {
+			"type": "object",
+			"properties": {
+				"jobId": {
+					"type": "string",
+					"format": "uuid",
+					"pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+				},
+				"attempt": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 9007199254740991
+				},
+				"result": {
+					"oneOf": [
+						{
+							"type": "object",
+							"properties": {
+								"type": {
+									"type": "string",
+									"const": "sync_gl_accounts"
+								},
+								"readAt": {
+									"type": "string",
+									"format": "date-time",
+									"pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+								},
+								"accounts": {
+									"maxItems": 10000,
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"number": {
+												"type": "string",
+												"minLength": 1,
+												"maxLength": 40,
+												"pattern": "^\\S(?:[\\s\\S]*\\S)?$"
+											},
+											"label": {
+												"anyOf": [
+													{
+														"type": "string",
+														"maxLength": 160,
+														"pattern": "^\\S(?:[\\s\\S]*\\S)?$"
+													},
+													{
+														"type": "null"
+													}
+												]
+											},
+											"dormant": {
+												"type": "boolean"
+											},
+											"sageType": {
+												"type": "integer",
+												"minimum": -32768,
+												"maximum": 32767
+											}
+										},
+										"required": [
+											"number",
+											"label",
+											"dormant",
+											"sageType"
+										],
+										"additionalProperties": false
+									}
+								}
+							},
+							"required": [
+								"type",
+								"readAt",
+								"accounts"
+							],
+							"additionalProperties": false
+						}
+					]
+				}
+			},
+			"required": [
+				"jobId",
+				"attempt",
+				"result"
+			],
+			"additionalProperties": false
+		},
+		"CompleteResponse": {
+			"type": "object",
+			"properties": {
+				"outcome": {
+					"type": "string",
+					"const": "applied"
+				},
+				"report": {
+					"type": "object",
+					"properties": {
+						"received": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"created": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"updated": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"deactivated": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"reactivated": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"unchanged": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"absentFromSage": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"skipped": {
+							"maxItems": 10000,
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"number": {
+										"type": "string",
+										"minLength": 1
+									},
+									"reason": {
+										"type": "string",
+										"enum": [
+											"label_missing",
+											"label_invalid",
+											"number_invalid",
+											"type_not_supported"
+										]
+									}
+								},
+								"required": [
+									"number",
+									"reason"
+								],
+								"additionalProperties": {}
+							}
+						}
+					},
+					"required": [
+						"received",
+						"created",
+						"updated",
+						"deactivated",
+						"reactivated",
+						"unchanged",
+						"absentFromSage",
+						"skipped"
+					],
+					"additionalProperties": {}
+				}
+			},
+			"required": [
+				"outcome",
+				"report"
+			],
+			"additionalProperties": {}
+		},
+		"FailRequest": {
+			"type": "object",
+			"properties": {
+				"jobId": {
+					"type": "string",
+					"format": "uuid",
+					"pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+				},
+				"attempt": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 9007199254740991
+				},
+				"error": {
+					"type": "object",
+					"properties": {
+						"code": {
+							"type": "string",
+							"enum": [
+								"sql_unreachable",
+								"sql_login_failed",
+								"sql_permission_denied",
+								"sql_timeout",
+								"source_invalid",
+								"internal"
+							]
+						},
+						"message": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 500
+						}
+					},
+					"required": [
+						"code",
+						"message"
+					],
+					"additionalProperties": false
+				},
+				"retryable": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"jobId",
+				"attempt",
+				"error",
+				"retryable"
+			],
+			"additionalProperties": false
+		},
+		"FailResponse": {
+			"type": "object",
+			"properties": {
+				"outcome": {
+					"type": "string",
+					"enum": [
+						"retry_scheduled",
+						"failed"
+					]
+				}
+			},
+			"required": [
+				"outcome"
+			],
+			"additionalProperties": {}
+		},
+		"UpdateRequest": {
+			"type": "object",
+			"properties": {
+				"auto": {
+					"type": "boolean"
+				},
+				"window": {
+					"anyOf": [
+						{
+							"type": "string",
+							"pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]-(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"last": {
+					"anyOf": [
+						{
+							"type": "object",
+							"properties": {
+								"version": {
+									"type": "string",
+									"pattern": "^[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}$"
+								},
+								"outcome": {
+									"type": "string",
+									"enum": [
+										"updated",
+										"failed",
+										"rolled_back",
+										"reboot_pending"
+									]
+								},
+								"at": {
+									"type": "string",
+									"format": "date-time",
+									"pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+								},
+								"message": {
+									"anyOf": [
+										{
+											"type": "string",
+											"minLength": 1,
+											"maxLength": 300,
+											"pattern": "^\\S(?:[\\s\\S]*\\S)?$"
+										},
+										{
+											"type": "null"
+										}
+									]
+								}
+							},
+							"required": [
+								"version",
+								"outcome",
+								"at",
+								"message"
+							],
+							"additionalProperties": false
+						},
+						{
+							"type": "null"
+						}
+					]
+				}
+			},
+			"required": [
+				"auto",
+				"window",
+				"last"
+			],
+			"additionalProperties": false
+		},
+		"UpdateResponse": {
+			"type": "object",
+			"properties": {
+				"latest": {
+					"anyOf": [
+						{
+							"type": "object",
+							"properties": {
+								"version": {
+									"type": "string",
+									"pattern": "^[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}$"
+								},
+								"protocol": {
+									"type": "integer",
+									"minimum": 0,
+									"maximum": 9007199254740991
+								},
+								"sha256": {
+									"type": "string",
+									"pattern": "^[0-9a-f]{64}$"
+								},
+								"bytes": {
+									"type": "integer",
+									"minimum": 1,
+									"maximum": 9007199254740991
+								},
+								"signed": {
+									"type": "boolean"
+								},
+								"publishedAt": {
+									"type": "string",
+									"format": "date-time",
+									"pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+								}
+							},
+							"required": [
+								"version",
+								"protocol",
+								"sha256",
+								"bytes",
+								"signed",
+								"publishedAt"
+							],
+							"additionalProperties": {}
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"minimumVersion": {
+					"anyOf": [
+						{
+							"type": "string",
+							"pattern": "^[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}$"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"outdated": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"latest",
+				"minimumVersion",
+				"outdated"
+			],
+			"additionalProperties": {}
+		},
+		"UpdateDownloadRequest": {
+			"type": "object",
+			"properties": {
+				"version": {
+					"type": "string",
+					"pattern": "^[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}$"
+				}
+			},
+			"required": [
+				"version"
+			],
+			"additionalProperties": false
+		},
+		"ErrorResponse": {
+			"type": "object",
+			"properties": {
+				"error": {
+					"type": "object",
+					"properties": {
+						"code": {
+							"type": "string",
+							"enum": [
+								"request_invalid",
+								"token_invalid",
+								"protocol_unsupported",
+								"code_invalid",
+								"connection_not_sage",
+								"job_not_claimed",
+								"result_too_large",
+								"rate_limited",
+								"agent_outdated",
+								"release_not_found"
+							]
+						},
+						"message": {
+							"type": "string",
+							"minLength": 1
+						},
+						"protocol": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"minimumSupported": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"minimumVersion": {
+							"type": "string",
+							"pattern": "^[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}$"
+						},
+						"retryAfterSeconds": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 9007199254740991
+						}
+					},
+					"required": [
+						"code",
+						"message"
+					],
+					"additionalProperties": {}
+				}
+			},
+			"required": [
+				"error"
+			],
+			"additionalProperties": {}
+		}
+	}
+}

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Read-only access to a Sage 100 database (SQL Server). .claude/rules/sage-sql-access.md binds
+       what goes here: read-only, one login per binding, never the instance's list of databases. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../PayrollSageAgent.Core/PayrollSageAgent.Core.csproj" />
+  </ItemGroup>
+</Project>

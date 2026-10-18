@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Platform-neutral: no Windows API, no SQL. The contract's messages, the binding model, the client
+       of the platform (plain HttpClient — testable with a handler, no server) and the job loop.
+       What the other projects share, and what the tests reach on Linux (.claude/rules/00-orientation.md). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PayrollSageAgent.Core.Tests" />
+  </ItemGroup>
+</Project>

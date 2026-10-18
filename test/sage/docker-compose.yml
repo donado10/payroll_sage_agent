@@ -1,0 +1,23 @@
+# SQL Server 2019, Developer edition, holding a RESTORED test Sage company — development only.
+# Listens on 127.0.0.1 only; the backups and sql/ are mounted read-only.
+#   cp test/sage/.env.example test/sage/.env    (set the three passwords)
+#   test/sage/setup.sh                          (starts this, restores, creates the logins)
+name: payroll-sage-agent-test
+
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: payroll-sage-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD in test/sage/.env}
+    ports:
+      - "127.0.0.1:14330:1433"
+    volumes:
+      - ./backups:/var/opt/mssql/backup:ro
+      - ./sql:/work/sql:ro
+      - sql-data:/var/opt/mssql
+
+volumes:
+  sql-data:

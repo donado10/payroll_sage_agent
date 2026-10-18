@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PayrollSageAgent.Core/PayrollSageAgent.Core.csproj" />
+    <Project Path="src/PayrollSageAgent.Sage/PayrollSageAgent.Sage.csproj" />
+    <Project Path="src/PayrollSageAgent.Service/PayrollSageAgent.Service.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PayrollSageAgent.Core.Tests/PayrollSageAgent.Core.Tests.csproj" />
+  </Folder>
+</Solution>

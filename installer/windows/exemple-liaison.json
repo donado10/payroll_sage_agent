@@ -1,0 +1,13 @@
+{
+  "name": "compta",
+  "url": "http://ADRESSE-DE-LA-PLATEFORME/api/agent",
+  "code": "ABCD-EFGH-JKLM",
+  "sql": {
+    "server": "SERVEUR\\INSTANCE",
+    "database": "BASE_SAGE",
+    "auth": "sql",
+    "user": "agent_paie",
+    "password": "",
+    "trustServerCertificate": true
+  }
+}

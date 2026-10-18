@@ -1,0 +1,3 @@
+{
+	"error": { "code": "request_invalid", "message": "La requête ne respecte pas le contrat de l’agent : result.accounts.0.number est requis." }
+}

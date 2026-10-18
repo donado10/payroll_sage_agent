@@ -1,0 +1,6 @@
+{
+	"jobId": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
+	"attempt": 2,
+	"error": { "code": "sql_permission_denied", "message": "Le compte SQL de cette liaison n’a pas le droit de lire F_COMPTEG." },
+	"retryable": false
+}

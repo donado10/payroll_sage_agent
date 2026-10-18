@@ -1,0 +1,6 @@
+{
+	"error": {
+		"code": "release_not_found",
+		"message": "Cette version de l’agent n’est pas publiée, ou a été retirée."
+	}
+}

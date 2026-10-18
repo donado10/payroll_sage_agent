@@ -1,0 +1,16 @@
+{
+	"jobId": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
+	"attempt": 1,
+	"result": {
+		"type": "sync_gl_accounts",
+		"readAt": "2026-10-17T14:00:12+00:00",
+		"accounts": [
+			{ "number": "42200000", "label": "Personnel, rémunérations dues", "dormant": false, "sageType": 0 },
+			{ "number": "43100000", "label": "Sécurité sociale", "dormant": false, "sageType": 0 },
+			{ "number": "66110000", "label": "Appointements, salaires et commissions", "dormant": false, "sageType": 0 },
+			{ "number": "42500000", "label": "Représentants du personnel", "dormant": true, "sageType": 0 },
+			{ "number": "66400000", "label": null, "dormant": false, "sageType": 0 },
+			{ "number": "66000000", "label": "Charges de personnel", "dormant": false, "sageType": 1 }
+		]
+	}
+}

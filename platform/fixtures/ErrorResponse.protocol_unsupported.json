@@ -1,0 +1,8 @@
+{
+	"error": {
+		"code": "protocol_unsupported",
+		"message": "Cet agent parle le protocole 0 ; la plateforme sert les protocoles 1 à 2. Mettez l’agent à jour.",
+		"protocol": 2,
+		"minimumSupported": 1
+	}
+}

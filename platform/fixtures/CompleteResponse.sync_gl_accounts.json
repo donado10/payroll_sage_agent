@@ -1,0 +1,16 @@
+{
+	"outcome": "applied",
+	"report": {
+		"received": 6,
+		"created": 2,
+		"updated": 2,
+		"deactivated": 1,
+		"reactivated": 0,
+		"unchanged": 0,
+		"absentFromSage": 3,
+		"skipped": [
+			{ "number": "66400000", "reason": "label_missing" },
+			{ "number": "66000000", "reason": "type_not_supported" }
+		]
+	}
+}
