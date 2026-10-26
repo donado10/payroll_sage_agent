@@ -73,7 +73,22 @@ e) Plus tard, dans agent.json, puis Redemarrer-agent.bat :
    - une nouvelle base     : une entrée de plus, avec son code ;
    - un nouveau mot de passe : tapez-le à la place de "(protégé)" ;
    - délier une base       : ajoutez "remove": true à son entrée (elle quittera le fichier) ;
-   - relier de nouveau une base révoquée sur la plateforme : un nouveau code dans son entrée.
+   - relier de nouveau une base révoquée sur la plateforme : un nouveau code dans son entrée ;
+   - ne synchroniser que certains comptes généraux : "accountFilter", en haut du fichier (pour
+     toutes les bases) ou dans l'entrée d'une base (pour elle seule, à la place de celui du haut) :
+         "accountFilter": ["4%", "50%"]
+     Le LIKE de SQL : 4% commence par 4, %62 finit par 62, %62% contient 62, 421100 est ce seul
+     compte. Lettres, chiffres, % et _ seulement. [] ou rien : tout le plan comptable.
+     [!] À la synchronisation suivante, la plateforme SUPPRIME les comptes de cet ERP hors du
+     filtre — sauf ceux qu'une rubrique ou le compte du net emploie, qu'elle garde et nomme.
+     Un filtre qui ne trouve aucun compte dans Sage ne change rien : la synchronisation échoue
+     et le dit.
+   - ne synchroniser que certains comptes tiers : "partnerFilter", à côté, de la même façon :
+         "partnerFilter": ["SAL%", "IPRES", "CSS"]
+     Sans filtre, TOUS les tiers de Sage viennent — les clients aussi. Hors du filtre, la
+     plateforme supprime les comptes tiers de cet ERP, sauf ceux reliés à un salarié ou nommés
+     par une rubrique. Les salariés se relient ensuite à leur tiers dans Passation comptable ›
+     Employés.
    Une base que le fichier ne nomme pas n'est jamais touchée.
 
    Variante : posez un agent.json À CÔTÉ du MSI avant le double-clic — il devient la configuration et

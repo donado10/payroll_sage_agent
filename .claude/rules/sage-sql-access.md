@@ -34,7 +34,8 @@ The agent is a GUEST on a production SQL Server that may host several clients' S
 - **Be a light guest.** Short queries, a command timeout on every one (connect 15 s, command 30 s), a
   global cap on concurrent queries across bindings (`JobRunner`'s gate: TWO for the whole agent), no
   long transactions, no locking hints that block Sage's users. The session declares
-  `ApplicationIntent=ReadOnly` and reads four columns of `dbo.F_COMPTEG`, nothing else.
+  `ApplicationIntent=ReadOnly` and reads four columns of `dbo.F_COMPTEG` and four of `dbo.F_COMPTET`
+  (0.7.0, the comptes tiers), nothing else.
 - **[HARD] `add-binding` CHECKS the login before pairing** (`SageChartReader.CheckAsync`, also alone as
   `check-sql`): it connects and can read `F_COMPTEG`, or it is refused. Whether it can also write, or see
   every database, is asked as permissions (`HAS_PERMS_BY_NAME`, never by listing anything) and REPORTED
@@ -50,8 +51,9 @@ The agent is a GUEST on a production SQL Server that may host several clients' S
   messages are FRENCH** (« Fournisseur de mémoire partagée ») — recognise by number, or by the « error:
   NN » the SNI text keeps in English; never by English prose.
 - **Sage's column names are FACTS to measure, not to remember.** `F_COMPTEG` was measured on
-  2026-10-17 (`docs/project-book/01-sage/f-compteg.md`); any other table is an assumption until it is
-  measured the same way. What a code MEANS (`CG_Type`, `CG_Sommeil` other than 0, `N_Nature`) is not
+  2026-10-17 (`docs/project-book/01-sage/f-compteg.md`), `F_COMPTET` on 2026-10-26 (`f-comptet.md` —
+  its `CT_Type` and `CT_Sommeil` are NULLABLE); any other table is an assumption until it is measured
+  the same way. What a code MEANS (`CG_Type`, `CG_Sommeil` other than 0, `N_Nature`) is not
   in the database and is not to be guessed.
 - **Trim `CG_Intitule`**: a quarter of the measured labels carry spaces.
 

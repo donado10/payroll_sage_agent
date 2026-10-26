@@ -12,6 +12,6 @@
     <Company>IGF</Company>
     <Product>Agent Sage — IGF Paie</Product>
     <!-- X-Agent-Version: the agent's build version, sent on every call and shown on the platform. -->
-    <Version>0.5.1</Version>
+    <Version>0.7.0</Version>
   </PropertyGroup>
 </Project>

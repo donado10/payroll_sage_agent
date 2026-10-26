@@ -92,7 +92,7 @@ public sealed partial class PendingRequests(AgentHome home, BindingPairing pairi
         }
         return request.Action == PendingRequest.CheckSql
             ? await pairing.CheckAsync(request.Sql, request.Password ?? "", say, ct)
-            : await pairing.AddAsync(request.Name, request.Url!, request.Code!, request.Sql, request.Password ?? "", say, ct);
+            : await pairing.AddAsync(request.Name, request.Url!, request.Code!, request.Sql, request.Password ?? "", say, ct, accountFilter: request.AccountFilter, partnerFilter: request.PartnerFilter);
     }
 
     private void WriteResult(string stem, PendingResult result)

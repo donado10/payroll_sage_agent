@@ -1,0 +1,13 @@
+{
+	"jobId": "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b",
+	"attempt": 1,
+	"result": {
+		"type": "sync_partner_accounts",
+		"readAt": "2026-10-26T14:00:03+00:00",
+		"accounts": [
+			{ "number": "SAL0042", "label": "DIOP Awa", "dormant": false, "sageType": 2 },
+			{ "number": "SAL0057", "label": "FALL Moussa", "dormant": false, "sageType": 2 }
+		],
+		"accountFilter": ["SAL%"]
+	}
+}

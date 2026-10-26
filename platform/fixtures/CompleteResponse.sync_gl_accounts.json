@@ -8,6 +8,9 @@
 		"reactivated": 0,
 		"unchanged": 0,
 		"absentFromSage": 3,
+		"accountFilter": [],
+		"removed": 0,
+		"keptInUse": [],
 		"skipped": [
 			{ "number": "66400000", "reason": "label_missing" },
 			{ "number": "66000000", "reason": "type_not_supported" }

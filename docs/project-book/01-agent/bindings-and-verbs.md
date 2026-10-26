@@ -67,6 +67,33 @@ code → paired; linked + new code → paired again, the new saved first; linked
 changed → checked, updated, the service restarted; `"remove": true` → unlinked and gone from the file;
 absent without a code → refused; a binding the file does not name → left alone. Then the secrets of what
 worked leave the file (code « "" », password « (protégé) »), and `agent.result.txt` says it all.
+
+**`accountFilter` (0.6.0, contract step 12) — which comptes généraux a binding syncs.** At the top of
+`agent.json` (shared) and/or in a binding's entry (its own list wins; `[]` is no filter), also in a
+`pending\` / `--config` file: `"accountFilter": ["4%", "50%"]`. SQL's `LIKE` — `4%` starts with 4, `%62` ends
+with 62, `%62%` contains 62, `421100` is that one account — restricted to letters, digits, `%` and `_`, 40
+characters, 50 patterns (`AccountFilter`); anything else refuses the whole file, because the platform
+matches the SAME patterns to delete what lies outside them. Kept in the binding file
+(`BindingConfig.AccountFilter`; a file from before 0.6.0 has none and reads as the whole chart). A change of
+filter alone is saved without a SQL check and the service restarted. `SageChartReader` reads
+`WHERE LTRIM(RTRIM(CG_Num)) LIKE @p0 OR …` — parameters, never pasted text — and `JobRunner` sends the
+patterns in `result.accountFilter` (no key without a filter: a platform older than the filter refuses it). A
+filter that matches nothing fails the job (`source_invalid`, not retried) and sends nothing. **On the
+platform, the next sync DELETES the accounts of that ERP outside the filter**, except those a mapping
+uses (kept and named); the log line says how many. `list-bindings` shows a binding's filter.
+**[!] An agent older than 0.6.0 refuses the key** (« clé inconnue ») and applies nothing: update first.
+
+**`partnerFilter` (0.7.0, contract step 13) — which comptes tiers a binding syncs**, beside `accountFilter`
+and in every way like it: shared at the top and/or per binding (its own list wins, `[]` is no filter, each
+key inherited on its own), the same grammar and checks, kept in the binding file
+(`BindingConfig.PartnerFilter`; a file from before 0.7.0 reads as every tiers), a change of it alone saved
+without a SQL check. It serves the second job type, `sync_partner_accounts`: `SageChartReader` reads
+`F_COMPTET` (`CT_Num`, `CT_Intitule`, `CT_Sommeil`, `CT_Type`, `WHERE LTRIM(RTRIM(CT_Num)) LIKE @p0 OR …`),
+and `JobRunner` sends the patterns in the SAME `result.accountFilter` field — one result shape for both
+types. Without a filter EVERY tiers comes, clients included; more than 10 000 fails with a sentence that
+suggests a `partnerFilter`. On the platform, the tiers outside it are deleted unless a salarié is linked to
+them or a rubrique names them. `list-bindings` shows « tiers SAL% ». **[!] An agent older than 0.7.0
+refuses the key** and fails a `sync_partner_accounts` job (« mettez-le à jour »): update first.
 **`init-config --msi <chemin>`** is the MSI's: an empty `agent.json` on a first install, the existing one
 kept, or the one placed next to the MSI taken and applied. **`configure-service`** (also the MSI's) runs the `sc.exe`
 settings: delayed start, service SID, restart on failure.

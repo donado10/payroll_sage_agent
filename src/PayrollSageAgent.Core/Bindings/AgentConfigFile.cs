@@ -8,7 +8,8 @@ namespace PayrollSageAgent.Core.Bindings;
 /// <c>agent.json</c> — the agent's CONFIG, in its own folder: the bindings it should have, one or several
 /// (<see cref="PendingRequest.ParseFile"/> with <c>config: true</c>). IT edits it (Configurer-agent.bat),
 /// then applies it (Redemarrer-agent.bat → <c>apply-config</c>). Its <c>update</c> object says how the agent
-/// updates itself (<see cref="Update.UpdateSettings"/>).
+/// updates itself (<see cref="Update.UpdateSettings"/>); its <c>accountFilter</c> (top, or per binding) which
+/// comptes généraux are synced (<see cref="AccountFilter"/>), and its <c>partnerFilter</c> which comptes tiers.
 ///
 /// [HARD] Once applied, the secrets LEAVE it: a pairing code used becomes « "" » (a code is spent once
 /// anyway), a password the agent protected becomes <see cref="PendingRequest.ProtectedMarker"/>, and an
@@ -31,6 +32,8 @@ public static class AgentConfigFile
             "trustServerCertificate": true
           },
           "update": { "auto": true, "window": "03:00-05:00" },
+          "accountFilter": [],
+          "partnerFilter": [],
           "bindings": []
         }
         """;

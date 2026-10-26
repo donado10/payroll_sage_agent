@@ -6,48 +6,88 @@ using PayrollSageAgent.Core.Sync;
 namespace PayrollSageAgent.Sage;
 
 /// <summary>
-/// F_COMPTEG, read for ONE binding — the shape measured on 2026-10-17 (docs/project-book/01-sage/f-compteg.md).
+/// F_COMPTEG and F_COMPTET, read for ONE binding — the shapes measured on 2026-10-17 and 2026-10-26
+/// (docs/project-book/01-sage/f-compteg.md, f-comptet.md).
 ///
 /// [HARD] The CODE reads, and is confined: the connection names its ONE database, the session is
-/// <c>ApplicationIntent=ReadOnly</c>, the queries are SELECTs on <c>dbo.F_COMPTEG</c> only, and nothing
-/// here ever lists the instance's databases — the check below asks a PERMISSION, it does not look. The
-/// LOGIN may hold more (any login is accepted since 2026-10-17, <c>sa</c> included): it is reported.
-/// Errors are named in the contract's words; SQL Server's own error — number and text — rides along as
-/// <see cref="SageReadException.Detail"/> and never leaves this machine (the console, the log file).
+/// <c>ApplicationIntent=ReadOnly</c>, the queries are SELECTs on <c>dbo.F_COMPTEG</c> and <c>dbo.F_COMPTET</c>
+/// only, and nothing here ever lists the instance's databases — the check below asks a PERMISSION, it does
+/// not look. The LOGIN may hold more (any login is accepted since 2026-10-17, <c>sa</c> included): it is
+/// reported. Errors are named in the contract's words; SQL Server's own error — number and text — rides
+/// along as <see cref="SageReadException.Detail"/> and never leaves this machine (the console, the log file).
 /// </summary>
 public sealed class SageChartReader : ISageChartReader
 {
     private const int ConnectSeconds = 15;
     private const int CommandSeconds = 30;
 
-    // The four columns the contract needs; nothing else of the row is read.
-    private const string ChartQuery =
-        "SELECT CG_Num, CG_Intitule, CG_Sommeil, CG_Type FROM dbo.F_COMPTEG ORDER BY CG_Num";
+    /// <summary>
+    /// What a sync reads: the four columns the contract needs, of ONE table — nothing else of the row. The
+    /// number column is also what a filter matches and what the rows are ordered by.
+    /// </summary>
+    internal sealed record Source(string Table, string Number, string Query, string What)
+    {
+        public static readonly Source Chart = new("F_COMPTEG", "CG_Num",
+            "SELECT CG_Num, CG_Intitule, CG_Sommeil, CG_Type FROM dbo.F_COMPTEG", "le plan comptable");
 
-    public async Task<IReadOnlyList<SageGlAccount>> ReadChartAsync(SqlTarget target, string password, CancellationToken ct)
+        public static readonly Source Partners = new("F_COMPTET", "CT_Num",
+            "SELECT CT_Num, CT_Intitule, CT_Sommeil, CT_Type FROM dbo.F_COMPTET", "les comptes tiers");
+    }
+
+    public Task<IReadOnlyList<SageAccount>> ReadChartAsync(SqlTarget target, string password, IReadOnlyList<string> accountFilter, CancellationToken ct) =>
+        ReadAsync(Source.Chart, target, password, accountFilter, ct);
+
+    public Task<IReadOnlyList<SageAccount>> ReadPartnersAsync(SqlTarget target, string password, IReadOnlyList<string> partnerFilter, CancellationToken ct) =>
+        ReadAsync(Source.Partners, target, password, partnerFilter, ct);
+
+    private static async Task<IReadOnlyList<SageAccount>> ReadAsync(Source source, SqlTarget target, string password, IReadOnlyList<string> filter, CancellationToken ct)
     {
         try
         {
             await using var connection = new SqlConnection(ConnectionString(target, password));
             await OpenAsync(connection, target, ct);
-            await using var command = new SqlCommand(ChartQuery, connection) { CommandTimeout = CommandSeconds };
+            await using var command = Command(connection, source, filter);
             await using var reader = await command.ExecuteReaderAsync(System.Data.CommandBehavior.SequentialAccess, ct);
 
-            var accounts = new List<SageGlAccount>();
+            var accounts = new List<SageAccount>();
             while (await reader.ReadAsync(ct))
             {
                 var number = reader.IsDBNull(0) ? "" : reader.GetString(0).Trim();
                 var label = reader.IsDBNull(1) ? null : reader.GetString(1).Trim();
+                // CT_Sommeil and CT_Type are NULLABLE in F_COMPTET (measured): not dormant, type unknown.
                 var dormant = !reader.IsDBNull(2) && reader.GetInt16(2) != 0;
-                var type = reader.IsDBNull(3) ? 0 : reader.GetInt16(3);
-                accounts.Add(new SageGlAccount(number, string.IsNullOrEmpty(label) ? null : label, dormant, type));
+                int? type = reader.IsDBNull(3) ? (source == Source.Chart ? 0 : null) : reader.GetInt16(3);
+                accounts.Add(new SageAccount(number, string.IsNullOrEmpty(label) ? null : label, dormant, type));
             }
             return accounts;
         }
         catch (SqlException error)
         {
-            throw Name(error, connecting: false, target.IsWindows);
+            throw Name(error, connecting: false, target.IsWindows, source);
         }
+    }
+
+    /// <summary>
+    /// The SELECT — with, for a filter, <c>WHERE LTRIM(RTRIM(CG_Num)) LIKE @p0 OR … LIKE @p1</c> (<c>CT_Num</c>
+    /// for the tiers). [HARD] The patterns are PARAMETERS, never text pasted into the query: they come from a
+    /// file IT edits. They are SQL's own <c>LIKE</c> — <c>%62%</c> contains 62, <c>%62</c> ends with it,
+    /// <c>421100</c> is that one account — on the TRIMMED number, the one sent: SQL Server's <c>LIKE</c> counts
+    /// a varchar's trailing spaces, so <c>%62</c> would miss a padded number. The platform reads the same
+    /// patterns the same way (platform/protocol.md › « sync_gl_accounts », « sync_partner_accounts »).
+    /// </summary>
+    internal static SqlCommand Command(SqlConnection? connection, Source source, IReadOnlyList<string> filter)
+    {
+        var command = new SqlCommand { Connection = connection, CommandTimeout = CommandSeconds };
+        var where = new List<string>();
+        for (var i = 0; i < filter.Count; i++)
+        {
+            where.Add($"LTRIM(RTRIM({source.Number})) LIKE @p{i}");
+            command.Parameters.Add(new SqlParameter($"@p{i}", System.Data.SqlDbType.VarChar, 40) { Value = filter[i] });
+        }
+        command.CommandText = where.Count == 0
+            ? $"{source.Query} ORDER BY {source.Number}"
+            : $"{source.Query} WHERE {string.Join(" OR ", where)} ORDER BY {source.Number}";
+        return command;
     }
 
     public async Task<SqlLoginRights> CheckAsync(SqlTarget target, string password, CancellationToken ct)
@@ -137,16 +177,16 @@ public sealed class SageChartReader : ISageChartReader
     /// « (provider: SQL Network Interfaces, error: NN - …) » is the same in both. Anything not recognised
     /// keeps the old sentence — with, now, the detail under it.
     /// </summary>
-    internal static SageReadException Name(SqlException error, bool connecting, bool windows = false)
+    internal static SageReadException Name(SqlException error, bool connecting, bool windows = false, Source? source = null)
     {
-        var (code, retryable, sentence) = Classify(error, connecting, windows);
+        var (code, retryable, sentence) = Classify(error, connecting, windows, source ?? Source.Chart);
         return new SageReadException(code, retryable, sentence, error, Detail(error));
     }
 
     private const string WindowsLogins =
         "sur ce même serveur : CREATE LOGIN [NT SERVICE\\PayrollSageAgent] FROM WINDOWS ; vers un serveur SQL distant d’un domaine : CREATE LOGIN [DOMAINE\\SERVEUR$] FROM WINDOWS (le compte machine) — puis un utilisateur dans la base";
 
-    private static (string Code, bool Retryable, string Sentence) Classify(SqlException error, bool connecting, bool windows)
+    private static (string Code, bool Retryable, string Sentence) Classify(SqlException error, bool connecting, bool windows, Source source)
     {
         var text = error.Message;
         if (windows && text.Contains("SSPI", StringComparison.Ordinal))
@@ -181,9 +221,9 @@ public sealed class SageChartReader : ISageChartReader
             case 4060:
                 return (ContractNames.SqlLoginFailed, false, "La base de cette liaison n’existe pas, ou le compte SQL n’y a pas accès.");
             case 229 or 230 or 262 or 297 or 300:
-                return (ContractNames.SqlPermissionDenied, false, "Le compte SQL de cette liaison n’a pas le droit de lire le plan comptable.");
+                return (ContractNames.SqlPermissionDenied, false, $"Le compte SQL de cette liaison n’a pas le droit de lire {source.What} ({source.Table}).");
             case 208:
-                return (ContractNames.SourceInvalid, false, "F_COMPTEG est introuvable : cette base n’est pas une société Sage 100 ?");
+                return (ContractNames.SourceInvalid, false, $"{source.Table} est introuvable : cette base n’est pas une société Sage 100 ?");
         }
         if (SniError(text) is 26 or 28 or 52)
         {

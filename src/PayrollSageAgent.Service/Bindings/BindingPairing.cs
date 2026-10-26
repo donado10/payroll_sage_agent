@@ -25,8 +25,10 @@ public sealed class BindingPairing(BindingStore store, ISecretProtector protecto
     /// <param name="replacing">A binding of the same name that this pairing REPLACES (a new code in agent.json):
     /// the new one is paired and saved FIRST, then the old one unpaired — a mistyped code leaves the old intact.</param>
     /// <param name="accessChecked">The SQL access was already checked — by the SERVICE, for Windows authentication.</param>
+    /// <param name="accountFilter">The comptes généraux it syncs (agent.json › <c>accountFilter</c>); none: all.</param>
+    /// <param name="partnerFilter">The comptes tiers it syncs (agent.json › <c>partnerFilter</c>); none: all.</param>
     public async Task<int> AddAsync(string name, Uri url, string code, SqlTarget target, string password, Func<string, Task> say, CancellationToken ct,
-        BindingConfig? replacing = null, bool accessChecked = false)
+        BindingConfig? replacing = null, bool accessChecked = false, IReadOnlyList<string>? accountFilter = null, IReadOnlyList<string>? partnerFilter = null)
     {
         if (!BindingRules.IsValidName(name))
         {
@@ -93,6 +95,8 @@ public sealed class BindingPairing(BindingStore store, ISecretProtector protecto
             ProtectedToken = protector.Protect(answer.Token),
             ProtectedSqlPassword = target.IsWindows ? "" : protector.Protect(password),
             PairedAt = DateTimeOffset.UtcNow,
+            AccountFilter = accountFilter ?? [],
+            PartnerFilter = partnerFilter ?? [],
         });
         if (replacing is not null)
         {
@@ -101,6 +105,8 @@ public sealed class BindingPairing(BindingStore store, ISecretProtector protecto
             await say(unpaired.IsOk ? "L’ancienne liaison de ce nom a été déliée." : "L’ancienne liaison de ce nom est remplacée.");
         }
         await say($"Liaison « {name} » établie : {answer.Company.Name} — {answer.Connection.Name}.");
+        if (accountFilter is { Count: > 0 }) await say($"Comptes généraux synchronisés : {AccountFilter.Describe(accountFilter)}.");
+        if (partnerFilter is { Count: > 0 }) await say($"Comptes tiers synchronisés : {AccountFilter.Describe(partnerFilter)}.");
         await say($"Secrets protégés : {protector.Kind}. Le service la prend en charge dans les 10 secondes.");
         return 0;
     }

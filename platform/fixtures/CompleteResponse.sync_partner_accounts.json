@@ -1,0 +1,16 @@
+{
+	"outcome": "applied",
+	"report": {
+		"received": 2,
+		"created": 1,
+		"updated": 0,
+		"deactivated": 0,
+		"reactivated": 0,
+		"unchanged": 1,
+		"absentFromSage": 0,
+		"accountFilter": ["SAL%"],
+		"removed": 128,
+		"keptInUse": ["IPRES"],
+		"skipped": []
+	}
+}

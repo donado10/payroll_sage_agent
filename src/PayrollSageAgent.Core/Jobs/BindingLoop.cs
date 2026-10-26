@@ -120,7 +120,7 @@ public sealed partial class BindingLoop(
         JobOutcome outcome;
         try
         {
-            outcome = await runner.RunAsync(job, binding.Sql, sqlPassword, ct);
+            outcome = await runner.RunAsync(job, binding.Sql, sqlPassword, binding.AccountFilter, binding.PartnerFilter, ct);
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
@@ -143,7 +143,13 @@ public sealed partial class BindingLoop(
                 if (sent.IsOk && sent.Value is { } done)
                 {
                     var r = done.Report;
-                    LogSynced(binding.Name, complete.Result.Accounts.Count, r.Created, r.Updated, r.Skipped.Count);
+                    var partners = complete.Result.Type == ContractNames.SyncPartnerAccounts;
+                    if (partners) LogSyncedPartners(binding.Name, complete.Result.Accounts.Count, r.Created, r.Updated, r.Skipped.Count);
+                    else LogSynced(binding.Name, complete.Result.Accounts.Count, r.Created, r.Updated, r.Skipped.Count);
+                    if (complete.Result.AccountFilter is { } filter)
+                    {
+                        LogFiltered(binding.Name, partners ? "partnerFilter" : "accountFilter", AccountFilter.Describe(filter), r.Removed ?? 0, r.KeptInUse?.Count ?? 0);
+                    }
                     return false;
                 }
                 if (sent.IsRefused(ContractNames.TokenInvalid)) return await RevokedAsync(ct);
@@ -218,6 +224,12 @@ public sealed partial class BindingLoop(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Liaison « {Name} » : plan comptable envoyé — {Sent} comptes ; {Created} créés, {Updated} mis à jour, {Skipped} ignorés par la plateforme.")]
     private partial void LogSynced(string name, int sent, int created, int updated, int skipped);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Liaison « {Name} » : comptes tiers envoyés — {Sent} tiers ; {Created} créés, {Updated} mis à jour, {Skipped} ignorés par la plateforme.")]
+    private partial void LogSyncedPartners(string name, int sent, int created, int updated, int skipped);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Liaison « {Name} » : filtre {Key} « {Filter} » — hors filtre, {Removed} supprimés sur la plateforme, {Kept} gardés car employés.")]
+    private partial void LogFiltered(string name, string key, string filter, int removed, int kept);
 
     // Une phrase, pas un booléen : « réessayable : True » au milieu d'une ligne en français.
     [LoggerMessage(Level = LogLevel.Warning, Message = "Liaison « {Name} » : échec signalé à la plateforme ({Code}) — {Retry}.")]

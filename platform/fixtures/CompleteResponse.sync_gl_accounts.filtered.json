@@ -1,0 +1,16 @@
+{
+	"outcome": "applied",
+	"report": {
+		"received": 3,
+		"created": 1,
+		"updated": 0,
+		"deactivated": 0,
+		"reactivated": 0,
+		"unchanged": 2,
+		"absentFromSage": 1,
+		"accountFilter": ["4%", "50%"],
+		"removed": 380,
+		"keptInUse": ["52100000", "66110000"],
+		"skipped": []
+	}
+}

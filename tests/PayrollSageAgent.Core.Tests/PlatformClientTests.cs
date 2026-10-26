@@ -100,7 +100,7 @@ public sealed class PlatformClientTests
             """{"outcome":"applied","report":{"received":1,"created":0,"updated":0,"deactivated":0,"reactivated":0,"unchanged":0,"absentFromSage":0,"skipped":[{"number":"1","reason":"label_missing"}]}}"""));
         var client = new PlatformClient(new HttpClient(handler), "1.2.3");
         var request = new CompleteRequest("3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f", 1,
-            new SyncGlAccountsResult(ContractNames.SyncGlAccounts, DateTimeOffset.UnixEpoch, [new SageGlAccount("1", null, false, 0)]));
+            new SyncAccountsResult(ContractNames.SyncGlAccounts, DateTimeOffset.UnixEpoch, [new SageAccount("1", null, false, 0)]));
 
         var result = await client.CompleteAsync(Endpoint, "t", request, TestContext.Current.CancellationToken);
 

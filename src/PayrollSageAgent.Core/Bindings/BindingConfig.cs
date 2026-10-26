@@ -23,6 +23,20 @@ public sealed record BindingConfig
     public string ProtectedSqlPassword { get; init; } = "";
     public required DateTimeOffset PairedAt { get; init; }
 
+    /// <summary>
+    /// The comptes généraux this binding syncs — agent.json › <c>accountFilter</c> (<see cref="Bindings.AccountFilter"/>);
+    /// empty: the whole chart. A binding file written before 0.6.0 has none, and reads as the whole chart.
+    /// [!] A list: record equality compares it by REFERENCE — compare with <see cref="Bindings.AccountFilter.Same"/>.
+    /// </summary>
+    public IReadOnlyList<string> AccountFilter { get; init; } = [];
+
+    /// <summary>
+    /// The comptes tiers this binding syncs — agent.json › <c>partnerFilter</c>, the same grammar; empty: every
+    /// tiers of F_COMPTET. A binding file written before 0.7.0 has none, and reads as every tiers.
+    /// [!] A list, like <see cref="AccountFilter"/>: compare with <see cref="Bindings.AccountFilter.Same"/>.
+    /// </summary>
+    public IReadOnlyList<string> PartnerFilter { get; init; } = [];
+
     /// <summary><c>active</c>, or <c>revoked</c> once the platform answered <c>token_invalid</c>.</summary>
     public string State { get; init; } = BindingStates.Active;
 

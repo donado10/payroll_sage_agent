@@ -145,6 +145,43 @@
 										"payload"
 									],
 									"additionalProperties": {}
+								},
+								{
+									"type": "object",
+									"properties": {
+										"id": {
+											"type": "string",
+											"format": "uuid",
+											"pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+										},
+										"type": {
+											"type": "string",
+											"const": "sync_partner_accounts"
+										},
+										"attempt": {
+											"type": "integer",
+											"minimum": 1,
+											"maximum": 9007199254740991
+										},
+										"leaseExpiresAt": {
+											"type": "string",
+											"format": "date-time",
+											"pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+										},
+										"payload": {
+											"type": "object",
+											"properties": {},
+											"additionalProperties": {}
+										}
+									},
+									"required": [
+										"id",
+										"type",
+										"attempt",
+										"leaseExpiresAt",
+										"payload"
+									],
+									"additionalProperties": {}
 								}
 							]
 						},
@@ -233,6 +270,91 @@
 										],
 										"additionalProperties": false
 									}
+								},
+								"accountFilter": {
+									"maxItems": 50,
+									"type": "array",
+									"items": {
+										"type": "string",
+										"pattern": "^[0-9A-Za-z%_]{1,40}$"
+									}
+								}
+							},
+							"required": [
+								"type",
+								"readAt",
+								"accounts"
+							],
+							"additionalProperties": false
+						},
+						{
+							"type": "object",
+							"properties": {
+								"type": {
+									"type": "string",
+									"const": "sync_partner_accounts"
+								},
+								"readAt": {
+									"type": "string",
+									"format": "date-time",
+									"pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+								},
+								"accounts": {
+									"maxItems": 10000,
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"number": {
+												"type": "string",
+												"minLength": 1,
+												"maxLength": 40,
+												"pattern": "^\\S(?:[\\s\\S]*\\S)?$"
+											},
+											"label": {
+												"anyOf": [
+													{
+														"type": "string",
+														"maxLength": 160,
+														"pattern": "^\\S(?:[\\s\\S]*\\S)?$"
+													},
+													{
+														"type": "null"
+													}
+												]
+											},
+											"dormant": {
+												"type": "boolean"
+											},
+											"sageType": {
+												"anyOf": [
+													{
+														"type": "integer",
+														"minimum": -32768,
+														"maximum": 32767
+													},
+													{
+														"type": "null"
+													}
+												]
+											}
+										},
+										"required": [
+											"number",
+											"label",
+											"dormant",
+											"sageType"
+										],
+										"additionalProperties": false
+									}
+								},
+								"accountFilter": {
+									"maxItems": 50,
+									"type": "array",
+									"items": {
+										"type": "string",
+										"pattern": "^[0-9A-Za-z%_]{1,40}$"
+									}
 								}
 							},
 							"required": [
@@ -297,6 +419,27 @@
 							"minimum": 0,
 							"maximum": 9007199254740991
 						},
+						"accountFilter": {
+							"maxItems": 50,
+							"type": "array",
+							"items": {
+								"type": "string",
+								"pattern": "^[0-9A-Za-z%_]{1,40}$"
+							}
+						},
+						"removed": {
+							"type": "integer",
+							"minimum": 0,
+							"maximum": 9007199254740991
+						},
+						"keptInUse": {
+							"maxItems": 10000,
+							"type": "array",
+							"items": {
+								"type": "string",
+								"minLength": 1
+							}
+						},
 						"skipped": {
 							"maxItems": 10000,
 							"type": "array",
@@ -333,6 +476,9 @@
 						"reactivated",
 						"unchanged",
 						"absentFromSage",
+						"accountFilter",
+						"removed",
+						"keptInUse",
 						"skipped"
 					],
 					"additionalProperties": {}

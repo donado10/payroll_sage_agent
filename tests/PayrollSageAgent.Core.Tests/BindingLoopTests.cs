@@ -52,7 +52,7 @@ public sealed class BindingLoopTests
     {
         var platform = new FakePlatform();
         platform.Claims["token-a"] = new([PlatformResult<ClaimResponse>.Ok(new ClaimResponse(Make.Job(), 15), 200)]);
-        var reader = new FakeReader(_ => [new SageGlAccount("411", "Clients", false, 0)]);
+        var reader = new FakeReader(_ => [new SageAccount("411", "Clients", false, 0)]);
         using var stop = new CancellationTokenSource();
         var loop = new BindingLoop(Make.Binding("a"), "token-a", "pw", platform, new JobRunner(reader, new SemaphoreSlim(2), TimeProvider.System),
             new Events(), NullLogger.Instance, StopAfter(2, stop));
@@ -86,7 +86,7 @@ public sealed class BindingLoopTests
         platform.Claims["token-b"] = new([PlatformResult<ClaimResponse>.Ok(new ClaimResponse(Make.Job(), 15), 200)]);
         var reader = new FakeReader(target => target.Database == "DB_a"
             ? throw new SageReadException(ContractNames.SqlUnreachable, true, "Le serveur SQL ne répond pas.")
-            : [new SageGlAccount("411", "Clients", false, 0)]);
+            : [new SageAccount("411", "Clients", false, 0)]);
         var runner = new JobRunner(reader, new SemaphoreSlim(2), TimeProvider.System);
 
         using var stopA = new CancellationTokenSource();
@@ -107,7 +107,7 @@ public sealed class BindingLoopTests
             PlatformResult<ClaimResponse>.Failed("réseau (ConnectionError)"),
             PlatformResult<ClaimResponse>.Ok(new ClaimResponse(Make.Job(), 15), 200),
         ]);
-        var reader = new FakeReader(_ => [new SageGlAccount("41100000", "Clients Dakar", false, 0)]);
+        var reader = new FakeReader(_ => [new SageAccount("41100000", "Clients Dakar", false, 0)]);
         var capture = new Capture();
         using var stop = new CancellationTokenSource();
         var loop = new BindingLoop(Make.Binding("a"), "igfa_TOKEN_VALUE", "SQL_PASSWORD_VALUE", platform,

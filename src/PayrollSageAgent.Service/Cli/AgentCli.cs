@@ -118,10 +118,10 @@ public sealed class AgentCli(BindingStore store, ISecretProtector protector, IPl
             {
                 // The access is checked AS THE SERVICE; the pairing itself needs no particular identity.
                 var access = await _handOff.CheckAsync(request.Sql, Say, ct);
-                return access != 0 ? access : await _pairing.AddAsync(request.Name, request.Url!, request.Code!, request.Sql, "", Say, ct, accessChecked: true);
+                return access != 0 ? access : await _pairing.AddAsync(request.Name, request.Url!, request.Code!, request.Sql, "", Say, ct, accessChecked: true, accountFilter: request.AccountFilter, partnerFilter: request.PartnerFilter);
             }
             var password = request.Password ?? await ReadPasswordAsync(o.ContainsKey("sql-password-stdin"), request, requests.Count > 1);
-            return await _pairing.AddAsync(request.Name, request.Url!, request.Code!, request.Sql, password, Say, ct);
+            return await _pairing.AddAsync(request.Name, request.Url!, request.Code!, request.Sql, password, Say, ct, accountFilter: request.AccountFilter, partnerFilter: request.PartnerFilter);
         });
     }
 
@@ -525,7 +525,9 @@ public sealed class AgentCli(BindingStore store, ISecretProtector protector, IPl
         {
             var state = b.State == BindingStates.Active ? "active" : $"révoquée ({b.StateReason})";
             var who = b.Sql.IsWindows ? "authentification Windows" : $"compte {b.Sql.User}";
-            output.WriteLine($"{b.Name} · {state} · base {b.Sql.Database} sur {b.Sql.Server}, {who} · {b.CompanyName} — {b.ConnectionName} · {b.Endpoint}");
+            var filter = (b.AccountFilter.Count > 0 ? $" · comptes {AccountFilter.Describe(b.AccountFilter)}" : "")
+                + (b.PartnerFilter.Count > 0 ? $" · tiers {AccountFilter.Describe(b.PartnerFilter)}" : "");
+            output.WriteLine($"{b.Name} · {state} · base {b.Sql.Database} sur {b.Sql.Server}, {who}{filter} · {b.CompanyName} — {b.ConnectionName} · {b.Endpoint}");
         }
         return 0;
     }

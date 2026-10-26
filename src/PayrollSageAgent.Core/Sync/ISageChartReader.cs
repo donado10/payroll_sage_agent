@@ -3,11 +3,23 @@ using PayrollSageAgent.Core.Contract;
 
 namespace PayrollSageAgent.Core.Sync;
 
-/// <summary>Reads Sage's chart of accounts for ONE binding — the CODE only reads (PayrollSageAgent.Sage).</summary>
+/// <summary>Reads Sage's chart of accounts and comptes tiers for ONE binding — the CODE only reads (PayrollSageAgent.Sage).</summary>
 public interface ISageChartReader
 {
-    /// <summary>The whole of F_COMPTEG, mapped: number and label trimmed, an empty label as null.</summary>
-    Task<IReadOnlyList<SageGlAccount>> ReadChartAsync(SqlTarget target, string password, CancellationToken ct);
+    /// <summary>
+    /// F_COMPTEG, mapped: number and label trimmed, an empty label as null — the whole chart, or, when
+    /// <paramref name="accountFilter"/> is not empty, the accounts whose TRIMMED number is <c>LIKE</c> one of
+    /// its patterns (agent.json › <c>accountFilter</c>, already checked by <see cref="AccountFilter"/>).
+    /// </summary>
+    Task<IReadOnlyList<SageAccount>> ReadChartAsync(SqlTarget target, string password, IReadOnlyList<string> accountFilter, CancellationToken ct);
+
+    /// <summary>
+    /// F_COMPTET, mapped the same way — every tiers (client, fournisseur, salarié, autre), or, when
+    /// <paramref name="partnerFilter"/> is not empty, those whose TRIMMED <c>CT_Num</c> is <c>LIKE</c> one of its
+    /// patterns (agent.json › <c>partnerFilter</c>). <c>CT_Sommeil</c> and <c>CT_Type</c> are NULLABLE there:
+    /// NULL reads as not dormant, and a null <see cref="SageAccount.SageType"/>.
+    /// </summary>
+    Task<IReadOnlyList<SageAccount>> ReadPartnersAsync(SqlTarget target, string password, IReadOnlyList<string> partnerFilter, CancellationToken ct);
 
     /// <summary>
     /// Before a binding is created: the login connects and can read F_COMPTEG — or throws

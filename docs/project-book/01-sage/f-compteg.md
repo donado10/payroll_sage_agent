@@ -66,6 +66,10 @@ Do not hard-code a meaning for any of them from memory; the contract decides wha
 - **Trim the label.** A quarter of the labels carry spaces Sage keeps; the platform's label is
   trimmed text.
 - **Key on `CG_Num`**, as the platform does. Whether `cbMarq` survives a renumbering is not measured.
+- **A filter matches the TRIMMED `CG_Num`** (`LTRIM(RTRIM(CG_Num)) LIKE @p…`, 0.6.0). No number was
+  padded in the measured company, but SQL Server's `LIKE` counts a varchar's trailing spaces, so
+  `%62` against a padded number would miss it — and the agent sends the trimmed number. `French_CI_AS`
+  makes the match case-insensitive, as the platform's `upper()` does.
 - The restore printed one warning: the database carries a FILESTREAM `DIRECTORY_NAME`
   (`PRESTIGEDECO`), which cannot be shared by the second copy on the same instance. Harmless for
   `F_COMPTEG`; a customer's server has one copy. **But any `ALTER DATABASE` on the second copy fails

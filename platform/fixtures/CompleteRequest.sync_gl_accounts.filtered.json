@@ -1,0 +1,14 @@
+{
+	"jobId": "3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f",
+	"attempt": 1,
+	"result": {
+		"type": "sync_gl_accounts",
+		"readAt": "2026-10-26T09:00:04+00:00",
+		"accounts": [
+			{ "number": "42200000", "label": "Personnel, rémunérations dues", "dormant": false, "sageType": 0 },
+			{ "number": "43100000", "label": "Sécurité sociale", "dormant": false, "sageType": 0 },
+			{ "number": "50100000", "label": "Valeurs mobilières", "dormant": false, "sageType": 0 }
+		],
+		"accountFilter": ["4%", "50%"]
+	}
+}

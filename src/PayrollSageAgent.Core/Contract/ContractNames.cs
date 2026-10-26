@@ -8,6 +8,8 @@ public static class ContractNames
     public const string TokenPrefix = "igfa_";
 
     public const string SyncGlAccounts = "sync_gl_accounts";
+    /// <summary>The comptes tiers of F_COMPTET (contract step 13, 0.7.0).</summary>
+    public const string SyncPartnerAccounts = "sync_partner_accounts";
 
     // The platform's refusals.
     public const string RequestInvalid = "request_invalid";
@@ -42,6 +44,6 @@ public static class ContractNames
     public const string SourceInvalid = "source_invalid";
     public const string Internal = "internal";
 
-    /// <summary>The contract's bound on one chart (AGENT_LIMITS.maxAccounts).</summary>
+    /// <summary>The contract's bound on one chart, or on the comptes tiers read at once (AGENT_LIMITS.maxAccounts).</summary>
     public const int MaxAccounts = 10_000;
 }

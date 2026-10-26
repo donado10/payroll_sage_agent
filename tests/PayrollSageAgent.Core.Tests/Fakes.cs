@@ -23,19 +23,35 @@ internal static class Make
         PairedAt = DateTimeOffset.UtcNow,
     };
 
-    public static AgentJob Job(int attempt = 1) =>
-        new(Guid.NewGuid().ToString(), ContractNames.SyncGlAccounts, attempt, DateTimeOffset.UtcNow.AddMinutes(5),
+    public static AgentJob Job(int attempt = 1, string type = ContractNames.SyncGlAccounts) =>
+        new(Guid.NewGuid().ToString(), type, attempt, DateTimeOffset.UtcNow.AddMinutes(5),
             System.Text.Json.JsonDocument.Parse("{}").RootElement);
 }
 
-/// <summary>A Sage that answers what it is told — a chart, or a failure.</summary>
-internal sealed class FakeReader(Func<SqlTarget, IReadOnlyList<SageGlAccount>> read) : ISageChartReader
+/// <summary>A Sage that answers what it is told — a chart, or a failure — for the comptes généraux and the tiers alike.</summary>
+internal sealed class FakeReader(Func<SqlTarget, IReadOnlyList<SageAccount>> read) : ISageChartReader
 {
     public int Reads { get; private set; }
 
-    public Task<IReadOnlyList<SageGlAccount>> ReadChartAsync(SqlTarget target, string password, CancellationToken ct)
+    /// <summary>The filter of the last read — what the runner handed down.</summary>
+    public IReadOnlyList<string>? LastFilter { get; private set; }
+
+    /// <summary>Which table the last read was: F_COMPTEG or F_COMPTET.</summary>
+    public string? LastTable { get; private set; }
+
+    public Task<IReadOnlyList<SageAccount>> ReadChartAsync(SqlTarget target, string password, IReadOnlyList<string> accountFilter, CancellationToken ct)
     {
         Reads++;
+        LastFilter = accountFilter;
+        LastTable = "F_COMPTEG";
+        return Task.FromResult(read(target));
+    }
+
+    public Task<IReadOnlyList<SageAccount>> ReadPartnersAsync(SqlTarget target, string password, IReadOnlyList<string> partnerFilter, CancellationToken ct)
+    {
+        Reads++;
+        LastFilter = partnerFilter;
+        LastTable = "F_COMPTET";
         return Task.FromResult(read(target));
     }
 

@@ -32,7 +32,7 @@ the ERP's credentials never reach the platform.
 | Project | Holds today | Will hold |
 | --- | --- | --- |
 | `PayrollSageAgent.Core` | the contract's records (`Contract/`), the platform client (`Platform/`), the binding model (`Bindings/`), `JobRunner` and `BindingLoop` (`Jobs/`), `AgentProtocol` | write jobs (écritures into Sage) — a later slice |
-| `PayrollSageAgent.Sage` | `SageChartReader`: F_COMPTEG (the code only reads), the login check, SQL Server's errors in French with their detail | Compte tiers, when the contract asks |
+| `PayrollSageAgent.Sage` | `SageChartReader`: F_COMPTEG and, since 0.7.0, F_COMPTET — the comptes tiers (the code only reads), the login check, SQL Server's errors in French with their detail | — |
 | `PayrollSageAgent.Service` | the host and `AgentSupervisor` (one loop per binding, and `pending\` at every pass), the verbs (`Cli/AgentCli`), the pairing both run (`BindingPairing`), `PendingRequests`, `BindingStore`, the secret protectors (DPAPI; a dev stand-in), the restricted folder (`AgentHome`) — and, outside it, `installer/`, `scripts/package.sh`, `scripts/lib/installers.py` (the MSI), `scripts/sign.sh` | self-update (Phase 9) |
 | `PayrollSageAgent.Core.Tests` | 69 tests: the `pending\` request format — one binding or several sharing values — and old binding files, the console copied into the log, the log files, the service SID, the address an agent may follow, and every fixture of `platform/fixtures/` round-tripped, every schema message mapped, the runner's rules, the client against a stub, the loop's isolation and its clean logs | — |
 

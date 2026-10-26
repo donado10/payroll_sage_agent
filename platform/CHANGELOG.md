@@ -5,10 +5,10 @@ line: what the agent repo must change, in plain words — the agent session read
 `npm run check:agent-protocol -- --freeze` refuses a freeze whose top entry is not the current
 version or has no « Agent impact ».
 
-## v0 — 2026-10-18
+## v0 — 2026-10-26
 
-The draft, written in steps over two days — v0 is not frozen for anyone yet, so it was amended
-rather than versioned:
+The draft, written in steps — v0 is not frozen for anyone yet, so it was amended rather than
+versioned:
 
 1. **Skeleton**: the binding as the identity, the security invariants, the versioning (O7) and the
    distribution (O6).
@@ -72,7 +72,60 @@ rather than versioned:
     missed. Additive for the agent: one that never calls `/offline` is exactly as before, only « Hors
     ligne » sooner.
 
+12. **A filter on the accounts a binding syncs** (2026-10-26). The user asked for a list of `LIKE`
+    patterns in `agent.json` — `["4%", "50%"]` — so that only those accounts come back, and decided that
+    after the resync Compte général lists ONLY them. `SyncGlAccountsResult` gains an optional
+    `accountFilter` (the patterns the agent READ with; `[0-9A-Za-z%_]{1,40}`, 50 at most), and the
+    platform then deletes the accounts of that ERP outside it — except those a mapping uses, kept and
+    named in the report (`keptInUse`); `removed` counts the others, and `absentFromSage` counts only what
+    the filter covers. A filter that brought no account back is refused (`request_invalid`). Additive:
+    an agent that sends no filter is exactly as before, and an older platform refuses the field — so a
+    filter is used only once the platform has it.
+
+13. **The comptes tiers from Sage** (2026-10-26). A second job type, `sync_partner_accounts`: the agent
+    reads `F_COMPTET` (`CT_Num`, `CT_Intitule`, `CT_Sommeil`, `CT_Type` — the last two NULLABLE in Sage,
+    so `sageType` may be `null`) and the platform applies the rules of the comptes généraux to the
+    connection's comptes tiers, with two differences: every `sageType` is taken (client, fournisseur,
+    salarié, autre — the filter chooses), and a tiers outside the filter is kept when a salarié is linked
+    to it or a rubrique names it as its fixed tiers. The filter is `agent.json` › `partnerFilter`, sent
+    back in the result's `accountFilter` (one result shape for both types). One open job per connection
+    AND TYPE now, so both syncs can be asked together. `JOB_ERROR_LABELS` no longer say « plan
+    comptable ». Additive: an agent that does not know the type fails it itself (`internal`, « mettez-le
+    à jour »), and the platform hands it out only when a person asks for it on Compte tiers.
+
 Both sides are built (Phases 4–6). v1 is declared before an agent is installed on a customer's server.
+
+Agent impact: étape 13 — un second type de demande, `sync_partner_accounts` (charge utile `{}`). L'agent
+lit `SELECT CT_Num, CT_Intitule, CT_Sommeil, CT_Type FROM dbo.F_COMPTET` (+ `WHERE LTRIM(RTRIM(CT_Num))
+LIKE @p0 OR …` avec un filtre, `ORDER BY CT_Num`) et répond un `CompleteRequest` dont `result` a la forme de
+`sync_gl_accounts` avec `type: "sync_partner_accounts"` : `number` = `CT_Num` rogné, `label` = `CT_Intitule`
+rogné (`null` si vide ou NULL), `dormant` = `CT_Sommeil` ≠ 0 (**faux si NULL**), `sageType` = `CT_Type`
+(**`null` si NULL** — les deux colonnes sont NULLABLES dans `F_COMPTET`). Le filtre est une seconde clé
+d'`agent.json`, **`"partnerFilter"`**, en tout point comme `accountFilter` (partagée en haut et/ou par
+liaison, la liaison l'emporte, `[]` = aucun, même grammaire, gardée avec la liaison, un changement de
+filtre seul enregistré sans vérification SQL) ; ses motifs partent dans `result.accountFilter` — le même
+champ que pour les comptes généraux —, la clé absente sans filtre. Aucun tiers ramené par le filtre :
+`source_invalid`, non réessayable, une phrase qui cite `partnerFilter` ; plus de 10 000 tiers : la même
+chose, la phrase conseille un `partnerFilter` (`F_COMPTET` contient aussi tous les CLIENTS). Un compte SQL
+qui ne lit pas `F_COMPTET` : `sql_permission_denied` avec une phrase qui nomme les comptes tiers —
+l'appairage ne vérifie toujours que `F_COMPTEG`. Le compte rendu (`CompleteResponse.report`) a la forme
+de celui des comptes généraux. Une liaison peut désormais avoir DEUX demandes ouvertes (une par type) :
+l'agent les prend une à une, comme aujourd'hui. Livré en 0.7.0 ; un agent plus ancien refuse la clé
+`partnerFilter` dans `agent.json` et échoue la demande (« mettez-le à jour ») — il faut le mettre à jour
+avant d'ajouter la clé.
+
+Agent impact: étape 12 — `agent.json` accepte `"accountFilter": ["4%", "50%"]`, en haut du fichier
+(partagé) et/ou sur chaque liaison (la liste de la liaison l'emporte ; `[]` = aucun filtre). Un motif
+est le `LIKE` de SQL : lettres, chiffres, `%` et `_` (où qu'ils soient : `62%` commence par 62, `%62`
+finit par 62, `%62%` contient 62 ; sans joker, un seul compte : `421100`), 40 caractères au plus, 50 motifs au plus — tout autre caractère est
+refusé à la lecture du fichier, avec une phrase. Le filtre est gardé avec la liaison. `sync_gl_accounts`
+lit alors `… FROM dbo.F_COMPTEG WHERE LTRIM(RTRIM(CG_Num)) LIKE @p0 OR LTRIM(RTRIM(CG_Num)) LIKE @p1 …`
+(le numéro ROGNÉ, celui qu'il envoie : le `LIKE` de SQL Server compte les espaces de fin d'un varchar)
+(des PARAMÈTRES, jamais le motif collé dans la requête) et envoie les motifs dans
+`result.accountFilter` ; sans filtre, l'agent n'envoie PAS la clé. Si le filtre ne ramène aucun compte,
+l'agent échoue la demande (`source_invalid`, non réessayable) avec une phrase qui cite le filtre, et
+n'envoie rien. `CompleteResponse.report` gagne `accountFilter`, `removed` et `keptInUse` (à journaliser :
+« N supprimés hors filtre, M gardés »). Livré en 0.6.0.
 
 Agent impact: étape 11 — quand le service s'arrête (arrêt demandé, redémarrage, arrêt de Windows, une
 mise à jour qui le remplace), APRÈS avoir arrêté et attendu les boucles des liaisons, appeler

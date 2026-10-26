@@ -420,7 +420,10 @@ refuses its version, and rolls back on its own; a person can install now (`Mettr
       agent repo's `dist/` — its `release.json` — checks the MSI's size, SHA-256 and protocol, uploads it
       to the private bucket **`agent-releases`** (`<version>/<file>`, no société folder: it holds none)
       and writes its row in **`sys_agent_releases`** (`20261018100000`). No binary is committed. Published
-      once; `--withdraw`, `--minimum`, `--list`.
+      once; `--withdraw`, `--minimum`, `--list`. **Per platform** — and prod, whose download button had
+      nothing to serve, is reached since 2026-10-19 through the repo AND Jenkins: `--stack=prod` commits
+      the release file in `igf_payroll/agent-releases/`, and the Jenkins job « Publier l'agent Sage »
+      takes the MSI as an upload and publishes it if that file names its SHA-256.
 - [x] **The version manifest and the download** are two routes that check neither the protocol nor the
       minimum — the way out: `POST /update` (`UpdateRequest`: the agent's settings and last attempt,
       recorded on the binding; `UpdateResponse`: latest, minimum, `outdated`) and `POST /update/download`
@@ -458,6 +461,59 @@ point. To see on Windows: the 0.5.0 updater installing 0.5.1 (in its window, or 
 
 **Exit:** a fresh machine goes from the app's button to a paired, online agent; an old agent updates
 itself or is refused clearly.
+
+## Step 9b: A filter on the accounts a binding syncs — 2026-10-26
+
+Asked by the user: a list of `LIKE` patterns in `agent.json` (`"accountFilter": ["4%", "50%"]`), shared at
+the top and/or per binding, so that only those accounts come back — and, their decision, Compte général
+lists ONLY those after the resync. Contract v0 step 12.
+
+- [x] Platform: `accountFilter` in the result, the rules in `agent_apply_gl_accounts`
+      (`20261026100000`): outside the filter → deleted, unless a mapping uses it (kept, `keptInUse`);
+      `absentFromSage` only inside it; a filter with no account refused. The report on Compte général.
+- [x] Agent 0.6.0: the key read, checked and kept with the binding; the parameterised `WHERE`; no account
+      → `source_invalid`; the report logged. Built (`dist/`, MSI asserted, unsigned).
+- [x] **Proven (2026-10-26)**: pgTAP (`agent_account_filter.test.sql`), `smoke:agent` (120), the agent's 143
+      tests, and the real agent in Docker against `PRESTIGE_TEXTILE` and the CLI stack — 1 348 synced; then
+      `["4%", "50%"]` through `agent.json` + `apply-config`: 287 read (SQL Server's own count), 1 059 removed,
+      the 2 in use kept (a rubrique's debit, the net's account); `["9Z%"]` failed with its sentence, nothing
+      removed; the key removed: 1 348 again. The Compte général report seen in a browser, no console error.
+- [x] Self-host migrated and recorded (`20261026100000`, functions md5-identical to the CLI stack).
+- [ ] 0.6.0 published on self-host (`npm run agent:publish -- --stack=self --version=0.6.0 --yes`) — and its
+      release file for prod (`--stack=prod`), then the Jenkins job.
+- [ ] On the user's server: 0.6.0 installed (by its updater), the key added, a resync. **An agent older than
+      0.6.0 refuses `agent.json` with the key in it** (« clé inconnue ») — update first, then add it.
+
+## Step 9c: The comptes tiers from Sage — 2026-10-26
+
+Asked by the user: the comptes tiers come from Sage, with a `LIKE` filter like the comptes généraux, and
+the salariés are linked to them in Passation comptable › Employés — per ERP, never on the fiche salarié,
+because a société may change ERP. Linking stays one salarié at a time (their choice: no automatic
+proposal). Contract v0 step 13: `sync_partner_accounts`, `agent.json` › `partnerFilter`.
+
+- [x] `F_COMPTET` measured on `PRESTIGE_TEXTILE` (145 tiers: 136 clients, 9 fournisseurs; `CT_Type` and
+      `CT_Sommeil` NULLABLE) — `protocol.md` › « The source, as measured ».
+- [x] Platform: the job type, one open job per connection AND type, `agent_apply_partner_accounts`
+      (`20261026120000`): every `sageType` taken; outside the filter → deleted unless a salarié is linked
+      or a rubrique names it (kept, `keptInUse`); « Synchroniser depuis Sage » and the report on Compte tiers.
+- [x] Agent 0.7.0: `F_COMPTET` read, `partnerFilter` read, checked and kept with the binding, the job
+      dispatched by type. Built (`dist/`, MSI asserted, unsigned).
+- [x] **Proven (2026-10-26)**: pgTAP (`agent_partner_sync.test.sql`, 35), `precheck` (1 879 tests),
+      `smoke:agent` (137), the agent's 155 tests, and the real agent in Docker against `PRESTIGE_TEXTILE` and
+      the CLI stack: a tiers sync and a chart sync asked together, both done (145 tiers — SQL Server's count —
+      and 1 348 accounts); a salarié linked to a client tiers, then `"partnerFilter": ["F%"]` through
+      `agent.json` + `apply-config` (a filter-only change, saved without a SQL check): 9 read (SQL Server's
+      `LIKE` count), 135 removed, the linked one kept; `["9Z%"]` failed with its sentence, nothing touched;
+      the key removed: 145 again. Compte tiers, Compte général and Employés checked in a browser (the button
+      through the real agent, each section its own report), no console error. No secret in the agent's log.
+      Not run: an agent older than 0.7.0 receiving the job (its `JobRunner` fails an unknown type —
+      read in 0.5.1 and 0.6.0, not executed).
+- [x] Self-host migrated and recorded (`20261026120000`, functions md5-identical to the CLI stack).
+- [ ] 0.7.0 published on self-host (`npm run agent:publish -- --stack=self --version=0.7.0 --yes`) — and its
+      release file for prod (`--stack=prod`), then the Jenkins job.
+- [ ] On the user's server: 0.7.0 installed, `partnerFilter` added, a sync from Compte tiers, the salariés
+      linked in Employés. **An agent older than 0.7.0 refuses `partnerFilter` in `agent.json`** — update
+      first, then add it.
 
 ## Phase 10: Against a real Sage database
 
