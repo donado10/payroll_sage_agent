@@ -3,7 +3,7 @@ using PayrollSageAgent.Core.Contract;
 
 namespace PayrollSageAgent.Core.Sync;
 
-/// <summary>Reads Sage's chart of accounts and comptes tiers for ONE binding — the CODE only reads (PayrollSageAgent.Sage).</summary>
+/// <summary>Reads Sage's chart of accounts, comptes tiers and journals for ONE binding — the CODE only reads (PayrollSageAgent.Sage).</summary>
 public interface ISageChartReader
 {
     /// <summary>
@@ -20,6 +20,14 @@ public interface ISageChartReader
     /// NULL reads as not dormant, and a null <see cref="SageAccount.SageType"/>.
     /// </summary>
     Task<IReadOnlyList<SageAccount>> ReadPartnersAsync(SqlTarget target, string password, IReadOnlyList<string> partnerFilter, CancellationToken ct);
+
+    /// <summary>
+    /// F_JOURNAUX, mapped (contract step 14) — every journal, or, when <paramref name="journalFilter"/> is not
+    /// empty, those whose TRIMMED <c>JO_Num</c> is <c>LIKE</c> one of its patterns (agent.json ›
+    /// <c>journalFilter</c>). Code, label and <c>CG_Num</c> trimmed, an empty one as null; <c>JO_Type</c> and
+    /// <c>JO_Sommeil</c> are NULLABLE: a null <see cref="SageJournal.SageType"/>, and NULL reads as not dormant.
+    /// </summary>
+    Task<IReadOnlyList<SageJournal>> ReadJournalsAsync(SqlTarget target, string password, IReadOnlyList<string> journalFilter, CancellationToken ct);
 
     /// <summary>
     /// Before a binding is created: the login connects and can read F_COMPTEG — or throws

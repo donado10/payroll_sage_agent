@@ -89,6 +89,11 @@ e) Plus tard, dans agent.json, puis Redemarrer-agent.bat :
      plateforme supprime les comptes tiers de cet ERP, sauf ceux reliés à un salarié ou nommés
      par une rubrique. Les salariés se relient ensuite à leur tiers dans Passation comptable ›
      Employés.
+   - ne synchroniser que certains journaux : "journalFilter", de la même façon :
+         "journalFilter": ["BQ%", "CAI", "OD"]
+     Sans filtre, TOUS les journaux de Sage viennent ; la plateforme ne garde que ceux de
+     trésorerie et d'opérations diverses. Hors du filtre, elle supprime les journaux de cet ERP,
+     sauf ceux qu'un prêt, un remboursement ou un réglage emploie.
    Une base que le fichier ne nomme pas n'est jamais touchée.
 
    Variante : posez un agent.json À CÔTÉ du MSI avant le double-clic — il devient la configuration et

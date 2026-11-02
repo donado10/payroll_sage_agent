@@ -58,22 +58,82 @@ public sealed record SageAccount(
     [property: JsonPropertyName("sageType"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] int? SageType);
 
 /// <summary>
-/// What a sync read — the chart (<c>sync_gl_accounts</c>) or the comptes tiers (<c>sync_partner_accounts</c>):
-/// one shape, <see cref="Type"/> says which. <see cref="AccountFilter"/> is the binding's filter for that type
-/// (agent.json › <c>accountFilter</c>, contract step 12; › <c>partnerFilter</c>, step 13) — the patterns
-/// Sage was READ with; null, and then absent from the JSON, when everything was read: a platform older than
-/// the filter refuses the key.
+/// A journal of F_JOURNAUX, as read (contract step 14) — facts: the platform decides its kind from
+/// <see cref="SageType"/> (<c>JO_Type</c>) and finds its compte de trésorerie from <see cref="Account"/>
+/// (<c>CG_Num</c>). The three nullable ones are written <c>null</c>, never left out (the contract requires the keys).
 /// </summary>
-public sealed record SyncAccountsResult(
+public sealed record SageJournal(
+    [property: JsonPropertyName("code")] string Code,
+    [property: JsonPropertyName("label"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? Label,
+    [property: JsonPropertyName("dormant")] bool Dormant,
+    [property: JsonPropertyName("sageType"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] int? SageType,
+    [property: JsonPropertyName("account"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? Account);
+
+/// <summary>
+/// What a sync read — <see cref="Type"/> says which, and which shape: the chart (<c>sync_gl_accounts</c>) and
+/// the comptes tiers (<c>sync_partner_accounts</c>) are <see cref="SyncAccountsResult"/>, the journals
+/// (<c>sync_journals</c>, step 14) <see cref="SyncJournalsResult"/>. <see cref="AccountFilter"/> is the
+/// binding's filter for that type (agent.json › <c>accountFilter</c>, contract step 12; › <c>partnerFilter</c>,
+/// step 13; › <c>journalFilter</c>, step 14) — the patterns Sage was READ with; null, and then absent from the
+/// JSON, when everything was read: a platform older than the filter refuses the key.
+/// </summary>
+public abstract record SyncResult(
     [property: JsonPropertyName("type")] string Type,
     [property: JsonPropertyName("readAt")] DateTimeOffset ReadAt,
+    [property: JsonPropertyName("accountFilter"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? AccountFilter)
+{
+    /// <summary>
+    /// How many rows were read — accounts, tiers or journals. [!] Never on the wire: the platform's result is a
+    /// STRICT object, and a « count » key fails the whole sync (400). The base's <c>[JsonIgnore]</c> does not
+    /// reach an override, so each override carries its own — the fixture round trip is what caught it.
+    /// </summary>
+    [JsonIgnore]
+    public abstract int Count { get; }
+}
+
+public sealed record SyncAccountsResult(
+    string Type,
+    DateTimeOffset ReadAt,
     [property: JsonPropertyName("accounts")] IReadOnlyList<SageAccount> Accounts,
-    [property: JsonPropertyName("accountFilter"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? AccountFilter = null);
+    IReadOnlyList<string>? AccountFilter = null) : SyncResult(Type, ReadAt, AccountFilter)
+{
+    [JsonIgnore]
+    public override int Count => Accounts.Count;
+}
+
+public sealed record SyncJournalsResult(
+    string Type,
+    DateTimeOffset ReadAt,
+    [property: JsonPropertyName("journals")] IReadOnlyList<SageJournal> Journals,
+    IReadOnlyList<string>? AccountFilter = null) : SyncResult(Type, ReadAt, AccountFilter)
+{
+    [JsonIgnore]
+    public override int Count => Journals.Count;
+}
+
+/// <summary>
+/// A <see cref="SyncResult"/> on the wire: WRITTEN as what it is (its own shape, every key of it), READ by its
+/// <c>type</c> — the fixtures and the tests read requests back; the platform never sends one.
+/// </summary>
+public sealed class SyncResultConverter : JsonConverter<SyncResult>
+{
+    public override SyncResult? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        using var document = JsonDocument.ParseValue(ref reader);
+        var type = document.RootElement.TryGetProperty("type", out var t) ? t.GetString() : null;
+        return type == ContractNames.SyncJournals
+            ? document.RootElement.Deserialize<SyncJournalsResult>(options)
+            : document.RootElement.Deserialize<SyncAccountsResult>(options);
+    }
+
+    public override void Write(Utf8JsonWriter writer, SyncResult value, JsonSerializerOptions options) =>
+        JsonSerializer.Serialize(writer, value, value.GetType(), options);
+}
 
 public sealed record CompleteRequest(
     [property: JsonPropertyName("jobId")] string JobId,
     [property: JsonPropertyName("attempt")] int Attempt,
-    [property: JsonPropertyName("result")] SyncAccountsResult Result);
+    [property: JsonPropertyName("result"), JsonConverter(typeof(SyncResultConverter))] SyncResult Result);
 
 public sealed record CompleteResponse(
     [property: JsonPropertyName("outcome")] string Outcome,

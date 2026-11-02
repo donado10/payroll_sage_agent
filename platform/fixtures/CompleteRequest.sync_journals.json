@@ -1,0 +1,15 @@
+{
+	"jobId": "6f7a8b9c-0d1e-4f2a-8b3c-4d5e6f7a8b9c",
+	"attempt": 1,
+	"result": {
+		"type": "sync_journals",
+		"readAt": "2026-10-29T10:00:02+00:00",
+		"journals": [
+			{ "code": "ACH", "label": "Achats", "dormant": false, "sageType": 0, "account": null },
+			{ "code": "BEU", "label": "Banque", "dormant": false, "sageType": 2, "account": "5121000" },
+			{ "code": "OD", "label": "Opérations diverses", "dormant": false, "sageType": 3, "account": null },
+			{ "code": "PAIE", "label": "Paie", "dormant": false, "sageType": 3, "account": null },
+			{ "code": "VTE", "label": "Ventes", "dormant": false, "sageType": 1, "account": null }
+		]
+	}
+}

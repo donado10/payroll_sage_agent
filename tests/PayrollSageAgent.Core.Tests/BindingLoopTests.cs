@@ -61,7 +61,7 @@ public sealed class BindingLoopTests
 
         var (token, request) = Assert.Single(platform.Completed);
         Assert.Equal("token-a", token);
-        Assert.Single(request.Result.Accounts);
+        Assert.Single(Assert.IsType<SyncAccountsResult>(request.Result).Accounts);
     }
 
     [Fact]

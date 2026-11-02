@@ -164,7 +164,7 @@ stateDiagram-v2
 | Poll interval | `pollSeconds` of the last answer (default **15 s**). The agent never polls faster; it may poll slower |
 | Online / offline | « En ligne » while the last call is less than **45 s** old (three polls missed) — and the binding has not said `/offline` since — « Hors ligne » after. 120 s until 2026-10-18 |
 | Stopping | **A service that stops calls `POST /offline` for each binding whose loop it ran**, AFTER the loops have ended — a claim still in flight that landed after it would put the binding back « En ligne ». Best effort: about 5 s for all of them together, never retried. A crash, a power cut or a network already down says nothing, and the 45 s of silence decide. The next call of any route that is a heartbeat makes the binding « En ligne » again |
-| One job at a time | per connection AND TYPE (one binding per connection): a claim returns ONE claimable job of THAT binding — the oldest — or `job: null`; the next claim takes the next. « Synchroniser » is refused on the screen while a sync of the same type of that connection is queued or claimed; a sync of the comptes généraux and one of the comptes tiers can be open together (2026-10-26) |
+| One job at a time | per connection AND TYPE (one binding per connection): a claim returns ONE claimable job of THAT binding — the oldest — or `job: null`; the next claim takes the next. « Synchroniser » is refused on the screen while a sync of the same type of that connection is queued or claimed; a sync of the comptes généraux, one of the comptes tiers and one of the journals can be open together (2026-10-26, 2026-10-29) |
 | Lease | **300 s** from the claim (`leaseExpiresAt`). Not extended in v0/v1 — a sync of 10 000 accounts is seconds |
 | Attempts | **3**. `attempt` is in the job and must be echoed in `complete` / `fail`: it is the FENCE. A late answer for an attempt whose lease expired and was re-queued is `job_not_claimed`, and changes nothing |
 | Expiry | a job still `queued` after **24 h** fails as « agent hors ligne » — a sync clicked on Friday is not applied on Monday |
@@ -176,10 +176,12 @@ stateDiagram-v2
 | --- | --- | --- | --- |
 | `sync_gl_accounts` | `{}` | the chart of `F_COMPTEG` — whole, or what the binding's filter covers | specified |
 | `sync_partner_accounts` | `{}` | the comptes tiers of `F_COMPTET` — whole, or what the binding's `partnerFilter` covers (2026-10-26) | specified |
+| `sync_journals` | `{}` | the journals of `F_JOURNAUX` — whole, or what the binding's `journalFilter` covers (2026-10-29) | specified |
 
 **A job type the agent does not know** is failed by the agent itself, before it reads anything:
 `internal`, **not retryable**, « Cet agent ne sait pas faire « … » : mettez-le à jour. » — 0.5.1 and
-0.6.0 do so (their `JobRunner`; nothing older is committed). An agent older than **0.7.0** answers `sync_partner_accounts` that way; the screen
+0.6.0 do so (their `JobRunner`; nothing older is committed). An agent older than **0.7.0** answers `sync_partner_accounts` that way,
+one older than **0.8.0** `sync_journals`; the screen
 shows the sentence, and its updater brings the version that knows it.
 
 ### `sync_gl_accounts` — the chart of accounts, from Sage
@@ -317,6 +319,80 @@ columns. The full shape is in the agent repo (`docs/project-book/01-sage/f-compt
 | `CG_NumPrinc` `varchar(13)` | the tiers' collective compte général — one per type here | not sent: the passation posts the tiers on the account its rubrique or the net names |
 | `cbMarq` `int`, primary key | Sage's own row id | not sent; the identity is `CT_Num` |
 
+### `sync_journals` — the journals, from Sage
+
+Added 2026-10-29, asked by the user: « sync the journal from sage. just like general compte, have a list of
+journal that I want to send off to this platform ». The journals land in Passation comptable › Journaux
+(`p_erp_journals`): the treasury journals a prêt's versement and a remboursement name, and the OD journal
+of the abandons.
+
+**What the agent does — reads, maps, sends; it decides nothing.** The same as `sync_gl_accounts`, on
+`F_JOURNAUX`:
+
+```sql
+SELECT JO_Num, JO_Intitule, JO_Sommeil, JO_Type, CG_Num FROM dbo.F_JOURNAUX  -- the binding's login; the agent only reads
+ WHERE LTRIM(RTRIM(JO_Num)) LIKE @p0 OR LTRIM(RTRIM(JO_Num)) LIKE @p1 …  -- only when the binding has a journalFilter
+ ORDER BY JO_Num
+```
+
+**The filter is `agent.json` › `"journalFilter"`**, beside `accountFilter` and `partnerFilter` and exactly
+like them: at the top of the file (shared) and/or on a binding (the binding's own list wins; `[]` is no
+filter); the same grammar (`[0-9A-Za-z%_]{1,40}`, 50 patterns at most, `%` and `_` wherever they stand, a
+pattern with no wildcard is ONE journal exactly — `["BQ%", "CAI", "OD"]`), matched against the TRIMMED code,
+case-insensitive, sent as query PARAMETERS. The patterns the agent read with travel in the result's
+**`accountFilter`** — the same field as for the comptes, so one rule serves the three types — and the key is
+**omitted when there is no filter**. A filter that brings back NO journal fails the job — `source_invalid`,
+not retryable, a sentence naming `journalFilter` — and nothing is sent. More than 10 000 journals fails the
+same way.
+
+| Contract field | From | Rule |
+| --- | --- | --- |
+| `code` | `JO_Num` | as read, trimmed |
+| `label` | `JO_Intitule` | TRIMMED; empty or NULL is sent as `null` |
+| `dormant` | `JO_Sommeil` | `true` when not 0; **`false` when NULL** — the column is nullable in Sage |
+| `sageType` | `JO_Type` | as read, the raw `smallint`, **`null` when NULL** (0 achats, 1 ventes, 2 trésorerie, 3 général, 4 situation, by Sage's own convention) |
+| `account` | `CG_Num` | TRIMMED; empty or NULL is sent as `null`. The compte de trésorerie of a trésorerie journal |
+
+Each code once, case ignored (Sage's `French_CI_AS` makes two codes differing only by case impossible).
+
+**What the platform does** — the rules of `sync_gl_accounts`, in ONE transaction, on the connection's
+`p_erp_journals`. The code is the identity, read WITHOUT case, like the platform's unique index: a journal
+typed « bq1 » by hand and received « BQ1 » is the same journal, its code kept. On top of the accounts' rules
+the platform decides four things the journal does not say as is:
+
+| A journal received… | The platform |
+| --- | --- |
+| with `sageType` 2 (trésorerie) | **takes it as a treasury journal**, linked to the compte général of THIS connection numbered `account` when the connection has it |
+| …whose `account` is `null`, or names no compte général of this connection | **takes it all the same** (20261029110000 — the user: « The journaux are linked to the versement method. It has nothing to do for now with the compte général »): a new journal comes without an account, an existing one keeps the account it had. The compte de trésorerie is needed only to PASS a treasury écriture, and the platform says so there |
+| with `sageType` 3 (général) | **takes it as an OD journal** (no account) |
+| with any other `sageType`, or `null` (achats, ventes, situation) | **skips it** (`type_not_supported`): no movement of the pay or of a prêt goes there — the rule `sync_gl_accounts` follows for `CG_Type ≠ 0` |
+| whose code is this connection's PAY journal (`p_erp_connections.journal_code`) | **skips it** (`pay_journal`): the pay journal is set on the ERP itself, and shown first in Journaux |
+| with `label: null`, or a label or code refused everywhere else (`import_text_is_safe`; code 1–20, label 1–80 characters) | **skips it** (`label_missing`, `label_invalid`, `number_invalid`) |
+| whose code is new on this connection | **creates** it, `is_active = not dormant` |
+| whose code exists | its label, its kind, its compte de trésorerie and **`is_active` MIRROR Sage**, both ways. A manual change on a Sage connection is overwritten at the next sync |
+| whose KIND would change while something holds it — a treasury journal named by a prêt's versement, a remboursement or a payment-mode proposal; the OD journal of the abandons | **skips it** (`kind_in_use`) and leaves it exactly as it was |
+| — present on the platform, absent from Sage | **left as it is** (`absentFromSage`); with a filter, only the journals the filter covers count here |
+| — present on the platform, OUTSIDE the filter | **deleted** (`removed`) — unless it is **in use**: named by a prêt's versement (`employee_loans`), a remboursement (`employee_loan_repayments`), a payment-mode proposal (`p_erp_payment_mode_journals`) or the abandon setting (`p_erp_connections.loan_write_off_journal_id`). Those are **kept** and named (`keptInUse`). Without a filter nothing is ever deleted |
+| a filter, and no journal at all | **refused** (`request_invalid`) — nothing is written |
+
+The report is `CompleteResponse.report`, the same shape and the same counts as for the comptes; for a
+journal, `skipped[].number` and `keptInUse` hold its CODE. The screen shows it on Journaux.
+
+#### The source, as measured (2026-10-29)
+
+Measured on the same restored Sage 100 company (SQL Server 2019, `French_CI_AS`), as `agent_a` (who reads
+the table): 5 journals, 27 columns. The full shape is in the agent repo
+(`docs/project-book/01-sage/f-journaux.md`).
+
+| Sage | Fact | What it means for the contract |
+| --- | --- | --- |
+| `JO_Num` `varchar(7)`, NOT NULL, unique (`IJO_NUM`) | no padding; 3 characters at most here, `[0-9A-Z]` only | fits `p_erp_journals.code` (1–20) as is; the journal's identity |
+| `JO_Intitule` `varchar(35)`, NULLABLE | none padded, NULL or empty here; 19 characters at most | trimmed by the agent; `null` when empty |
+| `JO_Type` `smallint`, **NULLABLE** | 1 × `0`, 1 × `1`, 1 × `2`, 2 × `3`; no NULL, no `4` here | `sageType`, `null` when NULL; 2 → treasury, 3 → OD, the rest skipped |
+| `CG_Num` `varchar(13)`, NULLABLE, a key into `F_COMPTEG` (`FKIA_F_JOURNAUX_CG_Num`) | set on the type-2 journal only, and that account exists in `F_COMPTEG`; none padded | `account`; the platform links it when the connection's Compte général has it |
+| `JO_Sommeil` `smallint`, **NULLABLE** | only `0` observed, no NULL | `dormant`; NULL reads as not dormant |
+| `cbMarq` `int`, primary key | Sage's own row id | not sent; the identity is `JO_Num` |
+
 ## Failures — what the platform records itself
 
 The agent never sends these; the screen shows them on the job:
@@ -336,7 +412,7 @@ The agent never sends these; the screen shows them on the job:
 | `sql_timeout` | a query ran past its command timeout (30 s) | yes |
 | `sql_login_failed` | the binding's SQL login is refused (password changed, login disabled) | no — a person must fix the binding |
 | `sql_permission_denied` | the login cannot read what the job needs | no |
-| `source_invalid` | what Sage holds cannot be expressed in the contract (two identical numbers, more than 10 000 accounts or tiers, a filter that matches nothing) | no |
+| `source_invalid` | what Sage holds cannot be expressed in the contract (two identical numbers or codes, more than 10 000 accounts, tiers or journals, a filter that matches nothing) | no |
 | `internal` | anything else — a bug in the agent | yes, the platform's attempt count stops it |
 
 `error.message` is ONE French sentence, at most 500 characters, that the screen shows as is: what

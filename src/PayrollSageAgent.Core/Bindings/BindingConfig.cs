@@ -37,6 +37,13 @@ public sealed record BindingConfig
     /// </summary>
     public IReadOnlyList<string> PartnerFilter { get; init; } = [];
 
+    /// <summary>
+    /// The journals this binding syncs — agent.json › <c>journalFilter</c>, the same grammar; empty: every
+    /// journal of F_JOURNAUX. A binding file written before 0.8.0 has none, and reads as every journal.
+    /// [!] A list, like <see cref="AccountFilter"/>: compare with <see cref="Bindings.AccountFilter.Same"/>.
+    /// </summary>
+    public IReadOnlyList<string> JournalFilter { get; init; } = [];
+
     /// <summary><c>active</c>, or <c>revoked</c> once the platform answered <c>token_invalid</c>.</summary>
     public string State { get; init; } = BindingStates.Active;
 

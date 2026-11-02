@@ -1,0 +1,20 @@
+{
+	"outcome": "applied",
+	"report": {
+		"received": 5,
+		"created": 2,
+		"updated": 0,
+		"deactivated": 0,
+		"reactivated": 0,
+		"unchanged": 0,
+		"absentFromSage": 0,
+		"accountFilter": [],
+		"removed": 0,
+		"keptInUse": [],
+		"skipped": [
+			{ "number": "ACH", "reason": "type_not_supported" },
+			{ "number": "PAIE", "reason": "pay_journal" },
+			{ "number": "VTE", "reason": "type_not_supported" }
+		]
+	}
+}

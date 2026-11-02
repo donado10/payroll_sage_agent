@@ -1,0 +1,10 @@
+{
+	"job": {
+		"id": "6f7a8b9c-0d1e-4f2a-8b3c-4d5e6f7a8b9c",
+		"type": "sync_journals",
+		"attempt": 1,
+		"leaseExpiresAt": "2026-10-29T10:05:00+00:00",
+		"payload": {}
+	},
+	"pollSeconds": 15
+}

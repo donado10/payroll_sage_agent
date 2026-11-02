@@ -6,12 +6,12 @@ using PayrollSageAgent.Core.Sync;
 namespace PayrollSageAgent.Sage;
 
 /// <summary>
-/// F_COMPTEG and F_COMPTET, read for ONE binding — the shapes measured on 2026-10-17 and 2026-10-26
-/// (docs/project-book/01-sage/f-compteg.md, f-comptet.md).
+/// F_COMPTEG, F_COMPTET and F_JOURNAUX, read for ONE binding — the shapes measured on 2026-10-17, 2026-10-26
+/// and 2026-10-29 (docs/project-book/01-sage/f-compteg.md, f-comptet.md, f-journaux.md).
 ///
 /// [HARD] The CODE reads, and is confined: the connection names its ONE database, the session is
-/// <c>ApplicationIntent=ReadOnly</c>, the queries are SELECTs on <c>dbo.F_COMPTEG</c> and <c>dbo.F_COMPTET</c>
-/// only, and nothing here ever lists the instance's databases — the check below asks a PERMISSION, it does
+/// <c>ApplicationIntent=ReadOnly</c>, the queries are SELECTs on <c>dbo.F_COMPTEG</c>, <c>dbo.F_COMPTET</c> and
+/// <c>dbo.F_JOURNAUX</c> only, and nothing here ever lists the instance's databases — the check below asks a PERMISSION, it does
 /// not look. The LOGIN may hold more (any login is accepted since 2026-10-17, <c>sa</c> included): it is
 /// reported. Errors are named in the contract's words; SQL Server's own error — number and text — rides
 /// along as <see cref="SageReadException.Detail"/> and never leaves this machine (the console, the log file).
@@ -22,8 +22,8 @@ public sealed class SageChartReader : ISageChartReader
     private const int CommandSeconds = 30;
 
     /// <summary>
-    /// What a sync reads: the four columns the contract needs, of ONE table — nothing else of the row. The
-    /// number column is also what a filter matches and what the rows are ordered by.
+    /// What a sync reads: the columns the contract needs, of ONE table — nothing else of the row. The number
+    /// (or code) column is also what a filter matches and what the rows are ordered by.
     /// </summary>
     internal sealed record Source(string Table, string Number, string Query, string What)
     {
@@ -32,15 +32,49 @@ public sealed class SageChartReader : ISageChartReader
 
         public static readonly Source Partners = new("F_COMPTET", "CT_Num",
             "SELECT CT_Num, CT_Intitule, CT_Sommeil, CT_Type FROM dbo.F_COMPTET", "les comptes tiers");
+
+        public static readonly Source Journals = new("F_JOURNAUX", "JO_Num",
+            "SELECT JO_Num, JO_Intitule, JO_Sommeil, JO_Type, CG_Num FROM dbo.F_JOURNAUX", "les journaux");
     }
 
     public Task<IReadOnlyList<SageAccount>> ReadChartAsync(SqlTarget target, string password, IReadOnlyList<string> accountFilter, CancellationToken ct) =>
-        ReadAsync(Source.Chart, target, password, accountFilter, ct);
+        ReadAsync(Source.Chart, target, password, accountFilter, Account(Source.Chart), ct);
 
     public Task<IReadOnlyList<SageAccount>> ReadPartnersAsync(SqlTarget target, string password, IReadOnlyList<string> partnerFilter, CancellationToken ct) =>
-        ReadAsync(Source.Partners, target, password, partnerFilter, ct);
+        ReadAsync(Source.Partners, target, password, partnerFilter, Account(Source.Partners), ct);
 
-    private static async Task<IReadOnlyList<SageAccount>> ReadAsync(Source source, SqlTarget target, string password, IReadOnlyList<string> filter, CancellationToken ct)
+    public Task<IReadOnlyList<SageJournal>> ReadJournalsAsync(SqlTarget target, string password, IReadOnlyList<string> journalFilter, CancellationToken ct) =>
+        ReadAsync(Source.Journals, target, password, journalFilter, reader =>
+        {
+            // In the order of the SELECT: the reader is SequentialAccess.
+            var (code, label, dormant, type) = Common(reader, nullType: null);
+            var account = reader.IsDBNull(4) ? null : reader.GetString(4).Trim();
+            return new SageJournal(code, label, dormant, type, string.IsNullOrEmpty(account) ? null : account);
+        }, ct);
+
+    /// <summary>A row of F_COMPTEG or F_COMPTET. A NULL type reads 0 for an account, null for a tiers (measured).</summary>
+    private static Func<SqlDataReader, SageAccount> Account(Source source) => reader =>
+    {
+        var (number, label, dormant, type) = Common(reader, nullType: source == Source.Chart ? 0 : null);
+        return new SageAccount(number, label, dormant, type);
+    };
+
+    /// <summary>
+    /// The four columns every source starts with — number or code, label, « en sommeil », type — trimmed, an
+    /// empty label as null. <c>CT_Sommeil</c>, <c>CT_Type</c>, <c>JO_Sommeil</c> and <c>JO_Type</c> are
+    /// NULLABLE in Sage (measured): not dormant, and the type <paramref name="nullType"/>.
+    /// </summary>
+    private static (string Number, string? Label, bool Dormant, int? Type) Common(SqlDataReader reader, int? nullType)
+    {
+        var number = reader.IsDBNull(0) ? "" : reader.GetString(0).Trim();
+        var label = reader.IsDBNull(1) ? null : reader.GetString(1).Trim();
+        var dormant = !reader.IsDBNull(2) && reader.GetInt16(2) != 0;
+        int? type = reader.IsDBNull(3) ? nullType : reader.GetInt16(3);
+        return (number, string.IsNullOrEmpty(label) ? null : label, dormant, type);
+    }
+
+    private static async Task<IReadOnlyList<T>> ReadAsync<T>(Source source, SqlTarget target, string password, IReadOnlyList<string> filter,
+        Func<SqlDataReader, T> map, CancellationToken ct)
     {
         try
         {
@@ -49,17 +83,12 @@ public sealed class SageChartReader : ISageChartReader
             await using var command = Command(connection, source, filter);
             await using var reader = await command.ExecuteReaderAsync(System.Data.CommandBehavior.SequentialAccess, ct);
 
-            var accounts = new List<SageAccount>();
+            var rows = new List<T>();
             while (await reader.ReadAsync(ct))
             {
-                var number = reader.IsDBNull(0) ? "" : reader.GetString(0).Trim();
-                var label = reader.IsDBNull(1) ? null : reader.GetString(1).Trim();
-                // CT_Sommeil and CT_Type are NULLABLE in F_COMPTET (measured): not dormant, type unknown.
-                var dormant = !reader.IsDBNull(2) && reader.GetInt16(2) != 0;
-                int? type = reader.IsDBNull(3) ? (source == Source.Chart ? 0 : null) : reader.GetInt16(3);
-                accounts.Add(new SageAccount(number, string.IsNullOrEmpty(label) ? null : label, dormant, type));
+                rows.Add(map(reader));
             }
-            return accounts;
+            return rows;
         }
         catch (SqlException error)
         {
@@ -69,11 +98,12 @@ public sealed class SageChartReader : ISageChartReader
 
     /// <summary>
     /// The SELECT — with, for a filter, <c>WHERE LTRIM(RTRIM(CG_Num)) LIKE @p0 OR … LIKE @p1</c> (<c>CT_Num</c>
-    /// for the tiers). [HARD] The patterns are PARAMETERS, never text pasted into the query: they come from a
+    /// for the tiers, <c>JO_Num</c> for the journals). [HARD] The patterns are PARAMETERS, never text pasted into the query: they come from a
     /// file IT edits. They are SQL's own <c>LIKE</c> — <c>%62%</c> contains 62, <c>%62</c> ends with it,
     /// <c>421100</c> is that one account — on the TRIMMED number, the one sent: SQL Server's <c>LIKE</c> counts
     /// a varchar's trailing spaces, so <c>%62</c> would miss a padded number. The platform reads the same
-    /// patterns the same way (platform/protocol.md › « sync_gl_accounts », « sync_partner_accounts »).
+    /// patterns the same way (platform/protocol.md › « sync_gl_accounts », « sync_partner_accounts »,
+    /// « sync_journals »).
     /// </summary>
     internal static SqlCommand Command(SqlConnection? connection, Source source, IReadOnlyList<string> filter)
     {

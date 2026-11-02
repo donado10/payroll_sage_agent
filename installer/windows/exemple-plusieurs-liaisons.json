@@ -7,6 +7,7 @@
   "update": { "auto": true, "window": "03:00-05:00" },
   "accountFilter": [],
   "partnerFilter": [],
+  "journalFilter": [],
   "bindings": [
     {
       "name": "client-a",
@@ -18,7 +19,8 @@
       "code": "DDDD-EEEE-FFFF",
       "sql": { "database": "SAGE_CLIENT_B", "user": "agent_client_b", "password": "" },
       "accountFilter": ["4%", "50%"],
-      "partnerFilter": ["SAL%", "IPRES", "CSS"]
+      "partnerFilter": ["SAL%", "IPRES", "CSS"],
+      "journalFilter": ["BQ%", "CAI", "OD"]
     },
     {
       "name": "client-c",

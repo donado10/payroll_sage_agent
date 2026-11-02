@@ -6,9 +6,9 @@
 
 | | |
 | --- | --- |
-| Contract | **v0** · minimum supported v0 · `9d1be44406ca` |
-| Source | igf_payroll `b-1` @ `087a373` (2026-10-26) — **includes uncommitted files** |
-| Exported | 2026-10-26T17:53:54.432Z |
+| Contract | **v0** · minimum supported v0 · `1558ad8974f4` |
+| Source | igf_payroll `b-1` @ `0ac9093` (2026-10-28) — **includes uncommitted files** |
+| Exported | 2026-10-29T10:55:44.852Z |
 
 ## Plan progress (`plan.md`)
 
@@ -34,7 +34,7 @@
 
 ## Latest contract entry (`CHANGELOG.md`)
 
-### v0 — 2026-10-26
+### v0 — 2026-10-29
 
 The draft, written in steps — v0 is not frozen for anyone yet, so it was amended rather than
 versioned:
@@ -122,7 +122,40 @@ versioned:
     comptable ». Additive: an agent that does not know the type fails it itself (`internal`, « mettez-le
     à jour »), and the platform hands it out only when a person asks for it on Compte tiers.
 
+14. **The journals from Sage** (2026-10-29). A third job type, `sync_journals`: the agent reads
+    `F_JOURNAUX` (`JO_Num`, `JO_Intitule`, `JO_Sommeil`, `JO_Type` — the last two NULLABLE — and `CG_Num`,
+    the compte de trésorerie) into a result of its own, `journals: [{code, label, dormant, sageType,
+    account}]`. The platform takes a trésorerie journal (`sageType` 2) as treasury — linked to the compte
+    général of that connection numbered `account` when it has it, without one otherwise — and a général one
+    (3) as OD; it skips the rest (`type_not_supported`), the connection's pay journal (`pay_journal`), and
+    a kind change on a journal something holds (`kind_in_use`) — two new skip reasons, which the agent
+    already reads as text. Outside the filter, a
+    journal is deleted unless a prêt's versement, a remboursement, a payment-mode proposal or the abandon
+    setting names it. The filter is `agent.json` › `journalFilter`, sent back in the result's
+    `accountFilter`. Additive: an agent that does not know the type fails it itself, and the platform
+    hands it out only when a person asks for it on Journaux.
+
 Both sides are built (Phases 4–6). v1 is declared before an agent is installed on a customer's server.
+
+Agent impact: étape 14 — un troisième type de demande, `sync_journals` (charge utile `{}`). L'agent lit
+`SELECT JO_Num, JO_Intitule, JO_Sommeil, JO_Type, CG_Num FROM dbo.F_JOURNAUX` (+ `WHERE LTRIM(RTRIM(JO_Num))
+LIKE @p0 OR …` avec un filtre, `ORDER BY JO_Num`) et répond un `CompleteRequest` dont `result` a une forme
+NEUVE : `{ "type": "sync_journals", "readAt", "journals": [...], "accountFilter"? }`, chaque journal étant
+`code` = `JO_Num` rogné, `label` = `JO_Intitule` rogné (`null` si vide ou NULL), `dormant` = `JO_Sommeil` ≠ 0
+(**faux si NULL**), `sageType` = `JO_Type` (**`null` si NULL**), `account` = `CG_Num` rogné (`null` si vide
+ou NULL). Un code n'y figure qu'une fois, sans distinction de casse. `CompleteRequest.result` n'est donc plus
+d'une seule forme : il se sérialise selon son type. Le filtre est une troisième clé d'`agent.json`,
+**`"journalFilter"`**, en tout point comme `accountFilter` et `partnerFilter` (partagée en haut et/ou par
+liaison, la liaison l'emporte, `[]` = aucun, même grammaire, gardée avec la liaison, un changement de filtre
+seul enregistré sans vérification SQL) ; ses motifs partent dans `result.accountFilter`, la clé absente sans
+filtre. Aucun journal ramené par le filtre : `source_invalid`, non réessayable, une phrase qui cite
+`journalFilter` ; plus de 10 000 journaux : la même chose. Un compte SQL qui ne lit pas `F_JOURNAUX` :
+`sql_permission_denied` avec une phrase qui nomme les journaux. Le compte rendu a la forme de celui des
+comptes ; `skipped[].reason` peut valoir deux textes de plus — `pay_journal`,
+`kind_in_use` — et `SkippedAccount.Reason` est déjà un texte : rien à changer là. Une liaison peut avoir
+TROIS demandes ouvertes (une par type). Livré en 0.8.0 ; un agent plus ancien refuse la clé `journalFilter`
+dans `agent.json` et échoue la demande (« mettez-le à jour ») — il faut le mettre à jour avant d'ajouter la
+clé.
 
 Agent impact: étape 13 — un second type de demande, `sync_partner_accounts` (charge utile `{}`). L'agent
 lit `SELECT CT_Num, CT_Intitule, CT_Sommeil, CT_Type FROM dbo.F_COMPTET` (+ `WHERE LTRIM(RTRIM(CT_Num))

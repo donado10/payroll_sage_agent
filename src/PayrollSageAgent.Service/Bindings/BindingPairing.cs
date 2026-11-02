@@ -27,8 +27,10 @@ public sealed class BindingPairing(BindingStore store, ISecretProtector protecto
     /// <param name="accessChecked">The SQL access was already checked — by the SERVICE, for Windows authentication.</param>
     /// <param name="accountFilter">The comptes généraux it syncs (agent.json › <c>accountFilter</c>); none: all.</param>
     /// <param name="partnerFilter">The comptes tiers it syncs (agent.json › <c>partnerFilter</c>); none: all.</param>
+    /// <param name="journalFilter">The journals it syncs (agent.json › <c>journalFilter</c>); none: all.</param>
     public async Task<int> AddAsync(string name, Uri url, string code, SqlTarget target, string password, Func<string, Task> say, CancellationToken ct,
-        BindingConfig? replacing = null, bool accessChecked = false, IReadOnlyList<string>? accountFilter = null, IReadOnlyList<string>? partnerFilter = null)
+        BindingConfig? replacing = null, bool accessChecked = false, IReadOnlyList<string>? accountFilter = null, IReadOnlyList<string>? partnerFilter = null,
+        IReadOnlyList<string>? journalFilter = null)
     {
         if (!BindingRules.IsValidName(name))
         {
@@ -97,6 +99,7 @@ public sealed class BindingPairing(BindingStore store, ISecretProtector protecto
             PairedAt = DateTimeOffset.UtcNow,
             AccountFilter = accountFilter ?? [],
             PartnerFilter = partnerFilter ?? [],
+            JournalFilter = journalFilter ?? [],
         });
         if (replacing is not null)
         {
@@ -107,6 +110,7 @@ public sealed class BindingPairing(BindingStore store, ISecretProtector protecto
         await say($"Liaison « {name} » établie : {answer.Company.Name} — {answer.Connection.Name}.");
         if (accountFilter is { Count: > 0 }) await say($"Comptes généraux synchronisés : {AccountFilter.Describe(accountFilter)}.");
         if (partnerFilter is { Count: > 0 }) await say($"Comptes tiers synchronisés : {AccountFilter.Describe(partnerFilter)}.");
+        if (journalFilter is { Count: > 0 }) await say($"Journaux synchronisés : {AccountFilter.Describe(journalFilter)}.");
         await say($"Secrets protégés : {protector.Kind}. Le service la prend en charge dans les 10 secondes.");
         return 0;
     }

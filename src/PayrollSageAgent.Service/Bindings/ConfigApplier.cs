@@ -15,7 +15,7 @@ namespace PayrollSageAgent.Service.Bindings;
 ///   linked, with a NEW code          → paired again (the new one saved first, then the old one let go)
 ///   linked, no code, same settings   → unchanged
 ///   linked, a password or a setting changed → checked with it, then updated (the service, restarted, rereads it)
-///   linked, only <c>accountFilter</c> / <c>partnerFilter</c> changed → saved without a SQL check (it changes
+///   linked, only <c>accountFilter</c> / <c>partnerFilter</c> / <c>journalFilter</c> changed → saved without a SQL check (it changes
 ///                                     what is READ, not who reads), the service restarted
 ///   <c>"remove": true</c>             → unpaired and deleted, and the entry leaves the file
 ///   absent, no code                  → refused: a code is needed to link it
@@ -166,7 +166,7 @@ public sealed class ConfigApplier(BindingStore store, ISecretProtector protector
                 checkedByService = true;
             }
             var exit = await pairing.AddAsync(entry.Name, entry.Url!, entry.Code!, entry.Sql, password ?? "", say, ct, replacing: existing, accessChecked: checkedByService,
-                accountFilter: entry.AccountFilter, partnerFilter: entry.PartnerFilter);
+                accountFilter: entry.AccountFilter, partnerFilter: entry.PartnerFilter, journalFilter: entry.JournalFilter);
             return new One(exit, Paired: exit == 0, PasswordProtected: exit == 0 && entry.Password is not null, RestartNeeded: exit == 0 && existing is not null);
         }
 
@@ -177,15 +177,16 @@ public sealed class ConfigApplier(BindingStore store, ISecretProtector protector
         // Lists: record equality would compare references (BindingConfig.AccountFilter).
         var filterChanged = !AccountFilter.Same(current.AccountFilter, entry.AccountFilter);
         var partnersChanged = !AccountFilter.Same(current.PartnerFilter, entry.PartnerFilter);
+        var journalsChanged = !AccountFilter.Same(current.JournalFilter, entry.JournalFilter);
         if (!settingsChanged && !passwordChanged)
         {
-            if (!filterChanged && !partnersChanged)
+            if (!filterChanged && !partnersChanged && !journalsChanged)
             {
                 await say("En ordre — inchangée.");
                 return new One(0);
             }
-            store.Save(current with { AccountFilter = entry.AccountFilter, PartnerFilter = entry.PartnerFilter });
-            await say($"Mise à jour ({FiltersSaid(entry, filterChanged, partnersChanged)}). Ils s’appliquent à la prochaine synchronisation.");
+            store.Save(current with { AccountFilter = entry.AccountFilter, PartnerFilter = entry.PartnerFilter, JournalFilter = entry.JournalFilter });
+            await say($"Mise à jour ({FiltersSaid(entry, filterChanged, partnersChanged, journalsChanged)}). Ils s’appliquent à la prochaine synchronisation.");
             return new One(0, RestartNeeded: true);
         }
         var checkedExit = entry.Sql.IsWindows
@@ -198,20 +199,22 @@ public sealed class ConfigApplier(BindingStore store, ISecretProtector protector
             ProtectedSqlPassword = entry.Sql.IsWindows ? "" : protector.Protect(password!),
             AccountFilter = entry.AccountFilter,
             PartnerFilter = entry.PartnerFilter,
+            JournalFilter = entry.JournalFilter,
         });
         await say(settingsChanged ? "Mise à jour (connexion SQL modifiée)." : "Mise à jour (nouveau mot de passe, protégé).");
-        if (filterChanged || partnersChanged)
+        if (filterChanged || partnersChanged || journalsChanged)
         {
-            var said = FiltersSaid(entry, filterChanged, partnersChanged);
+            var said = FiltersSaid(entry, filterChanged, partnersChanged, journalsChanged);
             await say($"{char.ToUpperInvariant(said[0])}{said[1..]}.");
         }
         return new One(0, PasswordProtected: passwordChanged && !entry.Sql.IsWindows, RestartNeeded: true);
     }
 
     /// <summary>« comptes généraux synchronisés : 4%, 50% ; comptes tiers synchronisés : SAL% » — what changed.</summary>
-    private static string FiltersSaid(PendingRequest entry, bool accounts, bool partners) => string.Join(" ; ", new[]
+    private static string FiltersSaid(PendingRequest entry, bool accounts, bool partners, bool journals) => string.Join(" ; ", new[]
     {
         accounts ? $"comptes généraux synchronisés : {AccountFilter.Describe(entry.AccountFilter)}" : null,
         partners ? $"comptes tiers synchronisés : {AccountFilter.Describe(entry.PartnerFilter)}" : null,
+        journals ? $"journaux synchronisés : {AccountFilter.Describe(entry.JournalFilter)}" : null,
     }.OfType<string>());
 }

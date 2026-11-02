@@ -184,4 +184,60 @@ public sealed class AccountFilterTests
         Assert.Equal<string>(["4%"], binding.AccountFilter);
         Assert.Empty(binding.PartnerFilter);
     }
+
+    // ---- journalFilter (contract step 14): the journals, the same grammar, their own key ----------------
+
+    [Fact]
+    public void The_journal_filter_is_inherited_and_overridden_on_its_own_beside_the_others()
+    {
+        var json = """
+            {
+              "url": "http://srv.exemple.sn:53231/api/agent",
+              "sql": { "server": "SRV\\SAGE", "user": "agent", "password": "secret" },
+              "partnerFilter": ["SAL%"],
+              "journalFilter": ["BQ%", "CAI"],
+              "bindings": [
+                { "name": "inherits", "code": "ABCD-EFGH-JKMN", "sql": { "database": "A" } },
+                { "name": "own", "code": "ABCD-EFGH-JKMP", "sql": { "database": "B" }, "journalFilter": ["OD"] },
+                { "name": "none", "code": "ABCD-EFGH-JKMQ", "sql": { "database": "C" }, "journalFilter": [] }
+              ]
+            }
+            """;
+        var (requests, errors) = PendingRequest.ParseFile(json, "agent", config: true);
+
+        Assert.Empty(errors);
+        Assert.Equal<string>(["BQ%", "CAI"], requests.Single(r => r.Name == "inherits").JournalFilter);
+        Assert.Equal<string>(["OD"], requests.Single(r => r.Name == "own").JournalFilter);
+        Assert.Empty(requests.Single(r => r.Name == "none").JournalFilter);
+        // Overriding one filter leaves the others inherited.
+        Assert.Equal<string>(["SAL%"], requests.Single(r => r.Name == "own").PartnerFilter);
+    }
+
+    [Fact]
+    public void A_bad_journal_pattern_is_refused_with_a_sentence_naming_journalFilter()
+    {
+        var json = """{ "url": "http://h/api/agent", "code": "ABCD-EFGH-JKMN", "sql": { "server": "S", "database": "D", "auth": "windows" }, "journalFilter": ["BQ-1"] }""";
+        var (requests, errors) = PendingRequest.ParseFile(json, "one");
+
+        Assert.Empty(requests);
+        Assert.Contains("« journalFilter » : « BQ-1 » n’est pas un motif", Assert.Single(errors), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_binding_file_written_before_0_8_0_reads_as_every_journal()
+    {
+        var json = """
+            {
+              "name": "a", "endpoint": "http://h/api/agent", "bindingId": "b", "companyName": "C", "connectionId": "c",
+              "connectionName": "Sage", "sql": { "server": "S", "database": "D", "user": "u" },
+              "protectedToken": "t", "protectedSqlPassword": "p", "pairedAt": "2026-10-17T20:00:00+00:00", "state": "active",
+              "partnerFilter": ["SAL%"]
+            }
+            """;
+        var binding = JsonSerializer.Deserialize<BindingConfig>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.NotNull(binding);
+        Assert.Equal<string>(["SAL%"], binding.PartnerFilter);
+        Assert.Empty(binding.JournalFilter);
+    }
 }

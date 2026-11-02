@@ -94,6 +94,20 @@ types. Without a filter EVERY tiers comes, clients included; more than 10 000 fa
 suggests a `partnerFilter`. On the platform, the tiers outside it are deleted unless a salarié is linked to
 them or a rubrique names them. `list-bindings` shows « tiers SAL% ». **[!] An agent older than 0.7.0
 refuses the key** and fails a `sync_partner_accounts` job (« mettez-le à jour »): update first.
+
+**`journalFilter` (0.8.0, contract step 14) — which journals a binding syncs**, beside the two others and
+in every way like them (shared and/or per binding, each key inherited on its own, the same grammar and
+checks, `BindingConfig.JournalFilter` — a file from before 0.8.0 reads as every journal —, a change of it
+alone saved without a SQL check). It serves the third job type, `sync_journals`: `SageChartReader` reads
+`F_JOURNAUX` (`JO_Num`, `JO_Intitule`, `JO_Sommeil`, `JO_Type`, `CG_Num`, `WHERE LTRIM(RTRIM(JO_Num)) LIKE
+@p0 OR …`), and `JobRunner` sends them in a result of their OWN shape — `SyncJournalsResult`, `journals:
+[{code, label, dormant, sageType, account}]` — with the patterns in the same `result.accountFilter` field.
+`CompleteRequest.Result` is therefore a `SyncResult`, written by `SyncResultConverter` as what it is. Two
+journal codes differing only by case are one code twice (`source_invalid`). On the platform, a trésorerie
+journal becomes a treasury journal with its `CG_Num`, a général one an OD journal, the rest is skipped, and
+outside the filter a journal is deleted unless a prêt or a setting names it. `list-bindings` shows
+« journaux BQ%, OD ». **[!] An agent older than 0.8.0 refuses the key** and fails a `sync_journals` job:
+update first.
 **`init-config --msi <chemin>`** is the MSI's: an empty `agent.json` on a first install, the existing one
 kept, or the one placed next to the MSI taken and applied. **`configure-service`** (also the MSI's) runs the `sc.exe`
 settings: delayed start, service SID, restart on failure.

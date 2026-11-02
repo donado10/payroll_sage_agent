@@ -28,15 +28,18 @@ internal static class Make
             System.Text.Json.JsonDocument.Parse("{}").RootElement);
 }
 
-/// <summary>A Sage that answers what it is told — a chart, or a failure — for the comptes généraux and the tiers alike.</summary>
-internal sealed class FakeReader(Func<SqlTarget, IReadOnlyList<SageAccount>> read) : ISageChartReader
+/// <summary>
+/// A Sage that answers what it is told — a chart, or a failure — for the comptes généraux and the tiers alike,
+/// and <paramref name="journals"/> for the journals (none when not given).
+/// </summary>
+internal sealed class FakeReader(Func<SqlTarget, IReadOnlyList<SageAccount>> read, Func<SqlTarget, IReadOnlyList<SageJournal>>? journals = null) : ISageChartReader
 {
     public int Reads { get; private set; }
 
     /// <summary>The filter of the last read — what the runner handed down.</summary>
     public IReadOnlyList<string>? LastFilter { get; private set; }
 
-    /// <summary>Which table the last read was: F_COMPTEG or F_COMPTET.</summary>
+    /// <summary>Which table the last read was: F_COMPTEG, F_COMPTET or F_JOURNAUX.</summary>
     public string? LastTable { get; private set; }
 
     public Task<IReadOnlyList<SageAccount>> ReadChartAsync(SqlTarget target, string password, IReadOnlyList<string> accountFilter, CancellationToken ct)
@@ -53,6 +56,16 @@ internal sealed class FakeReader(Func<SqlTarget, IReadOnlyList<SageAccount>> rea
         LastFilter = partnerFilter;
         LastTable = "F_COMPTET";
         return Task.FromResult(read(target));
+    }
+
+    public Task<IReadOnlyList<SageJournal>> ReadJournalsAsync(SqlTarget target, string password, IReadOnlyList<string> journalFilter, CancellationToken ct)
+    {
+        Reads++;
+        LastFilter = journalFilter;
+        LastTable = "F_JOURNAUX";
+        // A failure the test wants (SageReadException) is raised by `read`, for every table alike.
+        var accounts = read(target);
+        return Task.FromResult(journals?.Invoke(target) ?? (IReadOnlyList<SageJournal>)accounts.Select(a => new SageJournal(a.Number, a.Label, a.Dormant, a.SageType, null)).ToList());
     }
 
     public Task<SqlLoginRights> CheckAsync(SqlTarget target, string password, CancellationToken ct) => Task.FromResult(new SqlLoginRights(false, false));
@@ -74,7 +87,7 @@ internal sealed class FakePlatform : IPlatformClient
     public Task<PlatformResult<CompleteResponse>> CompleteAsync(Uri endpoint, string token, CompleteRequest request, CancellationToken ct)
     {
         Completed.Add((token, request));
-        var report = new SyncReport(request.Result.Accounts.Count, request.Result.Accounts.Count, 0, 0, 0, 0, 0, []);
+        var report = new SyncReport(request.Result.Count, request.Result.Count, 0, 0, 0, 0, 0, []);
         return Task.FromResult(PlatformResult<CompleteResponse>.Ok(new CompleteResponse("applied", report), 200));
     }
 

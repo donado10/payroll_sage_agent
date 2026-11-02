@@ -23,7 +23,8 @@ namespace PayrollSageAgent.Core.Bindings;
 ///     "trustServerCertificate": true
 ///   },
 ///   "accountFilter": ["4%", "50%"],                // optional: only these comptes généraux (LIKE); none = all
-///   "partnerFilter": ["SAL%", "IPRES", "CSS"]      // optional: only these comptes tiers (LIKE); none = all
+///   "partnerFilter": ["SAL%", "IPRES", "CSS"],     // optional: only these comptes tiers (LIKE); none = all
+///   "journalFilter": ["BQ%", "CAI", "OD"]          // optional: only these journals (LIKE); none = all
 /// }
 /// </code>
 ///
@@ -35,6 +36,7 @@ namespace PayrollSageAgent.Core.Bindings;
 ///   "sql": { "server": "SERVEUR\\INSTANCE", "trustServerCertificate": true },
 ///   "accountFilter": ["4%", "50%"],                // shared; a binding's own list wins ([] = no filter)
 ///   "partnerFilter": ["SAL%"],                     // the same, for the comptes tiers
+///   "journalFilter": ["BQ%", "OD"],                // the same, for the journals
 ///   "bindings": [
 ///     { "name": "client-a", "code": "AAAA-…", "sql": { "database": "CLIENT_A", "user": "agent_a", "password": "…" } },
 ///     { "name": "client-b", "code": "BBBB-…", "sql": { "database": "CLIENT_B", "auth": "windows" } }
@@ -60,6 +62,9 @@ public sealed record PendingRequest(string Action, string Name, Uri? Url, string
     /// <summary>The comptes tiers this binding syncs — <c>partnerFilter</c>, inherited and checked like <see cref="AccountFilter"/>.</summary>
     public IReadOnlyList<string> PartnerFilter { get; init; } = [];
 
+    /// <summary>The journals this binding syncs — <c>journalFilter</c>, inherited and checked like <see cref="AccountFilter"/> (0.8.0).</summary>
+    public IReadOnlyList<string> JournalFilter { get; init; } = [];
+
     /// <summary>What a password reads in <c>agent.json</c> once the agent has protected it (<see cref="AgentConfigFile"/>).</summary>
     public const string ProtectedMarker = "(protégé)";
 
@@ -68,12 +73,13 @@ public sealed record PendingRequest(string Action, string Name, Uri? Url, string
 
     private const string AccountFilterKey = "accountFilter";
     private const string PartnerFilterKey = "partnerFilter";
+    private const string JournalFilterKey = "journalFilter";
 
-    private static readonly HashSet<string> SingleKeys = ["action", "name", "url", "code", "sql", AccountFilterKey, PartnerFilterKey];
-    private static readonly HashSet<string> SharedKeys = ["action", "url", "sql", AccountFilterKey, PartnerFilterKey, "bindings"];
-    private static readonly HashSet<string> ConfigSharedKeys = ["action", "url", "sql", AccountFilterKey, PartnerFilterKey, "bindings", "update"];
-    private static readonly HashSet<string> EntryKeys = ["name", "url", "code", "sql", AccountFilterKey, PartnerFilterKey];
-    private static readonly HashSet<string> ConfigEntryKeys = ["name", "url", "code", "sql", AccountFilterKey, PartnerFilterKey, "remove"];
+    private static readonly HashSet<string> SingleKeys = ["action", "name", "url", "code", "sql", AccountFilterKey, PartnerFilterKey, JournalFilterKey];
+    private static readonly HashSet<string> SharedKeys = ["action", "url", "sql", AccountFilterKey, PartnerFilterKey, JournalFilterKey, "bindings"];
+    private static readonly HashSet<string> ConfigSharedKeys = ["action", "url", "sql", AccountFilterKey, PartnerFilterKey, JournalFilterKey, "bindings", "update"];
+    private static readonly HashSet<string> EntryKeys = ["name", "url", "code", "sql", AccountFilterKey, PartnerFilterKey, JournalFilterKey];
+    private static readonly HashSet<string> ConfigEntryKeys = ["name", "url", "code", "sql", AccountFilterKey, PartnerFilterKey, JournalFilterKey, "remove"];
     private static readonly HashSet<string> SqlKeys = ["server", "database", "auth", "user", "password", "trustServerCertificate"];
 
     /// <summary>
@@ -113,9 +119,10 @@ public sealed record PendingRequest(string Action, string Name, Uri? Url, string
                 var (single, error) = Build(action, Text(root, "name") ?? fileStem, Text(root, "url"), Text(root, "code"), SqlValues(root, null, out var sqlError), config);
                 var (ownFilter, filterError) = Filter(root, AccountFilterKey, []);
                 var (ownPartners, partnersError) = Filter(root, PartnerFilterKey, []);
+                var (ownJournals, journalsError) = Filter(root, JournalFilterKey, []);
                 if (single is null || sqlError is not null) return ([], [sqlError ?? error!]);
-                if ((filterError ?? partnersError) is { } bad) return ([], [bad]);
-                return ([single with { AccountFilter = ownFilter!, PartnerFilter = ownPartners! }], []);
+                if ((filterError ?? partnersError ?? journalsError) is { } bad) return ([], [bad]);
+                return ([single with { AccountFilter = ownFilter!, PartnerFilter = ownPartners!, JournalFilter = ownJournals! }], []);
             }
 
             var sharedKeys = config ? ConfigSharedKeys : SharedKeys;
@@ -136,6 +143,8 @@ public sealed record PendingRequest(string Action, string Name, Uri? Url, string
             if (sharedFilterError is not null) errors.Add(sharedFilterError);
             var (sharedPartners, sharedPartnersError) = Filter(root, PartnerFilterKey, []);
             if (sharedPartnersError is not null) errors.Add(sharedPartnersError);
+            var (sharedJournals, sharedJournalsError) = Filter(root, JournalFilterKey, []);
+            if (sharedJournalsError is not null) errors.Add(sharedJournalsError);
             var index = 0;
             foreach (var entry in list.EnumerateArray())
             {
@@ -170,7 +179,8 @@ public sealed record PendingRequest(string Action, string Name, Uri? Url, string
                 var (request, error) = Build(action, name, Text(entry, "url") ?? Text(root, "url"), Text(entry, "code"), target, config);
                 var (filter, filterError) = Filter(entry, AccountFilterKey, sharedFilter ?? []);
                 var (partnersFilter, partnersError) = Filter(entry, PartnerFilterKey, sharedPartners ?? []);
-                var problem = sqlError ?? error ?? filterError ?? partnersError;
+                var (journalsFilter, journalsError) = Filter(entry, JournalFilterKey, sharedJournals ?? []);
+                var problem = sqlError ?? error ?? filterError ?? partnersError ?? journalsError;
                 if (problem is not null)
                 {
                     errors.Add($"{label} : {problem}");
@@ -181,7 +191,7 @@ public sealed record PendingRequest(string Action, string Name, Uri? Url, string
                 }
                 else
                 {
-                    requests.Add(request with { AccountFilter = filter!, PartnerFilter = partnersFilter! });
+                    requests.Add(request with { AccountFilter = filter!, PartnerFilter = partnersFilter!, JournalFilter = journalsFilter! });
                 }
             }
             return errors.Count > 0 ? ([], errors) : (requests, []);
@@ -262,7 +272,7 @@ public sealed record PendingRequest(string Action, string Name, Uri? Url, string
         return (new PendingRequest(action, name, url, code, target, password), null);
     }
 
-    /// <summary>A filter of an object (<c>accountFilter</c>, <c>partnerFilter</c>) — its own, else <paramref name="inherited"/> — or why it cannot be used.</summary>
+    /// <summary>A filter of an object (<c>accountFilter</c>, <c>partnerFilter</c>, <c>journalFilter</c>) — its own, else <paramref name="inherited"/> — or why it cannot be used.</summary>
     private static (IReadOnlyList<string>? Patterns, string? Error) Filter(JsonElement owner, string key, IReadOnlyList<string> inherited) =>
         owner.TryGetProperty(key, out var value) ? Bindings.AccountFilter.Read(value, key) : (inherited, null);
 

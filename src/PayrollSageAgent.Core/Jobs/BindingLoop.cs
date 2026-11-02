@@ -120,7 +120,7 @@ public sealed partial class BindingLoop(
         JobOutcome outcome;
         try
         {
-            outcome = await runner.RunAsync(job, binding.Sql, sqlPassword, binding.AccountFilter, binding.PartnerFilter, ct);
+            outcome = await runner.RunAsync(job, binding.Sql, sqlPassword, binding.AccountFilter, binding.PartnerFilter, binding.JournalFilter, ct);
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
@@ -143,12 +143,19 @@ public sealed partial class BindingLoop(
                 if (sent.IsOk && sent.Value is { } done)
                 {
                     var r = done.Report;
-                    var partners = complete.Result.Type == ContractNames.SyncPartnerAccounts;
-                    if (partners) LogSyncedPartners(binding.Name, complete.Result.Accounts.Count, r.Created, r.Updated, r.Skipped.Count);
-                    else LogSynced(binding.Name, complete.Result.Accounts.Count, r.Created, r.Updated, r.Skipped.Count);
+                    var type = complete.Result.Type;
+                    if (type == ContractNames.SyncPartnerAccounts) LogSyncedPartners(binding.Name, complete.Result.Count, r.Created, r.Updated, r.Skipped.Count);
+                    else if (type == ContractNames.SyncJournals) LogSyncedJournals(binding.Name, complete.Result.Count, r.Created, r.Updated, r.Skipped.Count);
+                    else LogSynced(binding.Name, complete.Result.Count, r.Created, r.Updated, r.Skipped.Count);
                     if (complete.Result.AccountFilter is { } filter)
                     {
-                        LogFiltered(binding.Name, partners ? "partnerFilter" : "accountFilter", AccountFilter.Describe(filter), r.Removed ?? 0, r.KeptInUse?.Count ?? 0);
+                        var key = type switch
+                        {
+                            ContractNames.SyncPartnerAccounts => "partnerFilter",
+                            ContractNames.SyncJournals => "journalFilter",
+                            _ => "accountFilter",
+                        };
+                        LogFiltered(binding.Name, key, AccountFilter.Describe(filter), r.Removed ?? 0, r.KeptInUse?.Count ?? 0);
                     }
                     return false;
                 }
@@ -227,6 +234,9 @@ public sealed partial class BindingLoop(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Liaison « {Name} » : comptes tiers envoyés — {Sent} tiers ; {Created} créés, {Updated} mis à jour, {Skipped} ignorés par la plateforme.")]
     private partial void LogSyncedPartners(string name, int sent, int created, int updated, int skipped);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Liaison « {Name} » : journaux envoyés — {Sent} journaux ; {Created} créés, {Updated} mis à jour, {Skipped} ignorés par la plateforme.")]
+    private partial void LogSyncedJournals(string name, int sent, int created, int updated, int skipped);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Liaison « {Name} » : filtre {Key} « {Filter} » — hors filtre, {Removed} supprimés sur la plateforme, {Kept} gardés car employés.")]
     private partial void LogFiltered(string name, string key, string filter, int removed, int kept);

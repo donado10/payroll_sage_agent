@@ -1,0 +1,15 @@
+{
+	"jobId": "6f7a8b9c-0d1e-4f2a-8b3c-4d5e6f7a8b9c",
+	"attempt": 1,
+	"result": {
+		"type": "sync_journals",
+		"readAt": "2026-10-29T10:00:02+00:00",
+		"journals": [
+			{ "code": "BQ1", "label": "Banque SGBS", "dormant": false, "sageType": 2, "account": "521100" },
+			{ "code": "CAI", "label": "Caisse siège", "dormant": false, "sageType": 2, "account": "571100" },
+			{ "code": "OD", "label": "Opérations diverses", "dormant": false, "sageType": 3, "account": null },
+			{ "code": "OM", "label": "Orange Money", "dormant": true, "sageType": 2, "account": "552100" }
+		],
+		"accountFilter": ["BQ%", "CAI", "OD", "OM"]
+	}
+}

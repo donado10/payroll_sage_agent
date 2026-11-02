@@ -11,32 +11,66 @@ public sealed record JobOutcome(CompleteRequest? Complete, FailRequest? Fail, st
 /// <summary>
 /// Runs ONE claimed job for ONE binding. The agent decides nothing about the data: it reads, maps and
 /// sends; what is skipped or deactivated is the platform's rule (platform/protocol.md › « sync_gl_accounts »,
-/// « sync_partner_accounts »). The one choice is IT's, not the agent's: the binding's filter for the job's
-/// type — <c>accountFilter</c> for the chart, <c>partnerFilter</c> for the comptes tiers — narrows what is
-/// READ, and is sent with the result so that the platform removes what lies outside it.
+/// « sync_partner_accounts », « sync_journals »). The one choice is IT's, not the agent's: the binding's
+/// filter for the job's type — <c>accountFilter</c> for the chart, <c>partnerFilter</c> for the comptes tiers,
+/// <c>journalFilter</c> for the journals — narrows what is READ, and is sent with the result so that the
+/// platform removes what lies outside it.
 ///
 /// [HARD] A GUEST ON A SHARED SERVER: every read of Sage waits on <paramref name="sqlGate"/>, one gate
 /// for the whole agent, so N bindings never put N queries on the instance at once.
 /// </summary>
 public sealed class JobRunner(ISageChartReader reader, SemaphoreSlim sqlGate, TimeProvider clock)
 {
-    public async Task<JobOutcome> RunAsync(AgentJob job, SqlTarget target, string sqlPassword,
-        IReadOnlyList<string> accountFilter, IReadOnlyList<string> partnerFilter, CancellationToken ct)
+    /// <summary>What each job type reads, and how it is said when it goes wrong.</summary>
+    private sealed record Kind(string FilterKey, string NoneMatch, string TooMany, string Duplicate);
+
+    private static readonly Dictionary<string, Kind> Kinds = new(StringComparer.Ordinal)
     {
-        if (job.Type is not (ContractNames.SyncGlAccounts or ContractNames.SyncPartnerAccounts))
+        [ContractNames.SyncGlAccounts] = new("accountFilter",
+            "Aucun compte de Sage ne correspond au filtre « {0} » (agent.json › accountFilter) : rien n’a été envoyé, le plan comptable de la plateforme est inchangé.",
+            "Le plan comptable de Sage compte {0} comptes : la plateforme en reprend {1} au plus.",
+            "Le numéro de compte {0} figure plusieurs fois dans Sage."),
+        [ContractNames.SyncPartnerAccounts] = new("partnerFilter",
+            "Aucun compte tiers de Sage ne correspond au filtre « {0} » (agent.json › partnerFilter) : rien n’a été envoyé, les comptes tiers de la plateforme sont inchangés.",
+            "Sage compte {0} comptes tiers (ses clients compris) : la plateforme en reprend {1} au plus. Ne gardez que ceux de la paie avec un filtre — agent.json › partnerFilter, par exemple [\"SAL%\", \"IPRES\", \"CSS\"].",
+            "Le numéro de compte tiers {0} figure plusieurs fois dans Sage."),
+        [ContractNames.SyncJournals] = new("journalFilter",
+            "Aucun journal de Sage ne correspond au filtre « {0} » (agent.json › journalFilter) : rien n’a été envoyé, les journaux de la plateforme sont inchangés.",
+            "Sage compte {0} journaux : la plateforme en reprend {1} au plus.",
+            "Le code de journal {0} figure plusieurs fois dans Sage."),
+    };
+
+    public async Task<JobOutcome> RunAsync(AgentJob job, SqlTarget target, string sqlPassword,
+        IReadOnlyList<string> accountFilter, IReadOnlyList<string> partnerFilter, IReadOnlyList<string> journalFilter, CancellationToken ct)
+    {
+        if (!Kinds.TryGetValue(job.Type, out var kind))
         {
             return Fail(job, ContractNames.Internal, false, $"Cet agent ne sait pas faire « {job.Type} » : mettez-le à jour.");
         }
-        var partners = job.Type == ContractNames.SyncPartnerAccounts;
-        var filter = partners ? partnerFilter : accountFilter;
+        var filter = job.Type switch
+        {
+            ContractNames.SyncPartnerAccounts => partnerFilter,
+            ContractNames.SyncJournals => journalFilter,
+            _ => accountFilter,
+        };
 
-        IReadOnlyList<SageAccount> accounts;
+        IReadOnlyList<SageAccount> accounts = [];
+        IReadOnlyList<SageJournal> journals = [];
         await sqlGate.WaitAsync(ct);
         try
         {
-            accounts = partners
-                ? await reader.ReadPartnersAsync(target, sqlPassword, filter, ct)
-                : await reader.ReadChartAsync(target, sqlPassword, filter, ct);
+            switch (job.Type)
+            {
+                case ContractNames.SyncJournals:
+                    journals = await reader.ReadJournalsAsync(target, sqlPassword, filter, ct);
+                    break;
+                case ContractNames.SyncPartnerAccounts:
+                    accounts = await reader.ReadPartnersAsync(target, sqlPassword, filter, ct);
+                    break;
+                default:
+                    accounts = await reader.ReadChartAsync(target, sqlPassword, filter, ct);
+                    break;
+            }
         }
         catch (SageReadException error)
         {
@@ -47,31 +81,33 @@ public sealed class JobRunner(ISageChartReader reader, SemaphoreSlim sqlGate, Ti
             sqlGate.Release();
         }
 
+        var count = job.Type == ContractNames.SyncJournals ? journals.Count : accounts.Count;
+
         // A filter that matched nothing is a mistake in agent.json, never « delete every account » — the
         // platform would refuse it too; said here, in words IT can act on.
-        if (filter.Count > 0 && accounts.Count == 0)
+        if (filter.Count > 0 && count == 0)
         {
-            return Fail(job, ContractNames.SourceInvalid, false, partners
-                ? $"Aucun compte tiers de Sage ne correspond au filtre « {AccountFilter.Describe(filter)} » (agent.json › partnerFilter) : rien n’a été envoyé, les comptes tiers de la plateforme sont inchangés."
-                : $"Aucun compte de Sage ne correspond au filtre « {AccountFilter.Describe(filter)} » (agent.json › accountFilter) : rien n’a été envoyé, le plan comptable de la plateforme est inchangé.");
+            return Fail(job, ContractNames.SourceInvalid, false, string.Format(System.Globalization.CultureInfo.InvariantCulture, kind.NoneMatch, AccountFilter.Describe(filter)));
         }
 
-        if (accounts.Count > ContractNames.MaxAccounts)
+        if (count > ContractNames.MaxAccounts)
         {
-            return Fail(job, ContractNames.SourceInvalid, false, !partners
-                ? $"Le plan comptable de Sage compte {accounts.Count} comptes : la plateforme en reprend {ContractNames.MaxAccounts} au plus."
-                : $"Sage compte {accounts.Count} comptes tiers (ses clients compris) : la plateforme en reprend {ContractNames.MaxAccounts} au plus. Ne gardez que ceux de la paie avec un filtre — agent.json › partnerFilter, par exemple [\"SAL%\", \"IPRES\", \"CSS\"].");
+            return Fail(job, ContractNames.SourceInvalid, false, string.Format(System.Globalization.CultureInfo.InvariantCulture, kind.TooMany, count, ContractNames.MaxAccounts));
         }
 
-        var duplicate = accounts.GroupBy(a => a.Number, StringComparer.Ordinal).FirstOrDefault(g => g.Count() > 1);
+        // A journal code is unique in Sage WITHOUT case (French_CI_AS), and so it is on the platform.
+        var duplicate = job.Type == ContractNames.SyncJournals
+            ? journals.GroupBy(j => j.Code, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1)?.Key
+            : accounts.GroupBy(a => a.Number, StringComparer.Ordinal).FirstOrDefault(g => g.Count() > 1)?.Key;
         if (duplicate is not null)
         {
-            return Fail(job, ContractNames.SourceInvalid, false, partners
-                ? $"Le numéro de compte tiers {duplicate.Key} figure plusieurs fois dans Sage."
-                : $"Le numéro de compte {duplicate.Key} figure plusieurs fois dans Sage.");
+            return Fail(job, ContractNames.SourceInvalid, false, string.Format(System.Globalization.CultureInfo.InvariantCulture, kind.Duplicate, duplicate));
         }
 
-        var result = new SyncAccountsResult(job.Type, clock.GetUtcNow(), accounts, filter.Count > 0 ? filter : null);
+        var sent = filter.Count > 0 ? filter : null;
+        SyncResult result = job.Type == ContractNames.SyncJournals
+            ? new SyncJournalsResult(job.Type, clock.GetUtcNow(), journals, sent)
+            : new SyncAccountsResult(job.Type, clock.GetUtcNow(), accounts, sent);
         return new JobOutcome(new CompleteRequest(job.Id, job.Attempt, result), null);
     }
 

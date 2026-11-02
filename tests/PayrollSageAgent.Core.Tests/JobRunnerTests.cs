@@ -18,14 +18,14 @@ public sealed class JobRunnerTests
             new("66400000", null, true, 0),
         };
         var job = Make.Job(attempt: 2);
-        var outcome = await Runner(new FakeReader(_ => chart)).RunAsync(job, Make.Binding("a").Sql, "pw", [], [], TestContext.Current.CancellationToken);
+        var outcome = await Runner(new FakeReader(_ => chart)).RunAsync(job, Make.Binding("a").Sql, "pw", [], [], [], TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Fail);
         Assert.Equal(job.Id, outcome.Complete!.JobId);
         Assert.Equal(2, outcome.Complete.Attempt);
         Assert.Equal(ContractNames.SyncGlAccounts, outcome.Complete.Result.Type);
         // The type-1 account and the label-less one are SENT: skipping them is the platform's rule.
-        Assert.Equal(chart, outcome.Complete.Result.Accounts);
+        Assert.Equal(chart, Assert.IsType<SyncAccountsResult>(outcome.Complete.Result).Accounts);
         // No filter: the key is not sent at all — a platform older than the filter refuses it.
         Assert.Null(outcome.Complete.Result.AccountFilter);
         Assert.DoesNotContain("accountFilter", System.Text.Json.JsonSerializer.Serialize(outcome.Complete, AgentJson.Options), StringComparison.Ordinal);
@@ -35,7 +35,7 @@ public sealed class JobRunnerTests
     public async Task A_filter_is_handed_to_the_reader_and_sent_with_the_chart()
     {
         var reader = new FakeReader(_ => [new("42200000", "Personnel", false, 0)]);
-        var outcome = await Runner(reader).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", ["4%", "%62"], [], TestContext.Current.CancellationToken);
+        var outcome = await Runner(reader).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", ["4%", "%62"], [], [], TestContext.Current.CancellationToken);
 
         Assert.Equal(["4%", "%62"], reader.LastFilter);
         Assert.Equal(["4%", "%62"], outcome.Complete!.Result.AccountFilter);
@@ -45,7 +45,7 @@ public sealed class JobRunnerTests
     [Fact]
     public async Task A_filter_that_matches_nothing_fails_and_sends_no_chart()
     {
-        var outcome = await Runner(new FakeReader(_ => [])).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", ["9Z%"], [], TestContext.Current.CancellationToken);
+        var outcome = await Runner(new FakeReader(_ => [])).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", ["9Z%"], [], [], TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Complete);
         Assert.Equal(ContractNames.SourceInvalid, outcome.Fail!.Error.Code);
@@ -56,7 +56,7 @@ public sealed class JobRunnerTests
     [Fact]
     public async Task Without_a_filter_an_empty_chart_is_still_sent()
     {
-        var outcome = await Runner(new FakeReader(_ => [])).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", [], [], TestContext.Current.CancellationToken);
+        var outcome = await Runner(new FakeReader(_ => [])).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", [], [], [], TestContext.Current.CancellationToken);
         Assert.NotNull(outcome.Complete);
     }
 
@@ -64,7 +64,7 @@ public sealed class JobRunnerTests
     public async Task A_failure_reading_Sage_is_reported_in_the_contracts_words()
     {
         var reader = new FakeReader(_ => throw new SageReadException(ContractNames.SqlUnreachable, true, "Le serveur SQL ne répond pas."));
-        var outcome = await Runner(reader).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", [], [], TestContext.Current.CancellationToken);
+        var outcome = await Runner(reader).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", [], [], [], TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Complete);
         Assert.Equal(ContractNames.SqlUnreachable, outcome.Fail!.Error.Code);
@@ -75,12 +75,12 @@ public sealed class JobRunnerTests
     public async Task A_chart_the_contract_cannot_carry_fails_as_source_invalid_and_is_not_cut()
     {
         var huge = Enumerable.Range(0, ContractNames.MaxAccounts + 1).Select(i => new SageAccount($"{i:D8}", "x", false, 0)).ToList();
-        var tooMany = await Runner(new FakeReader(_ => huge)).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", [], [], TestContext.Current.CancellationToken);
+        var tooMany = await Runner(new FakeReader(_ => huge)).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", [], [], [], TestContext.Current.CancellationToken);
         Assert.Equal(ContractNames.SourceInvalid, tooMany.Fail!.Error.Code);
         Assert.False(tooMany.Fail.Retryable);
 
         var twice = new List<SageAccount> { new("411", "a", false, 0), new("411", "b", false, 0) };
-        var duplicate = await Runner(new FakeReader(_ => twice)).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", [], [], TestContext.Current.CancellationToken);
+        var duplicate = await Runner(new FakeReader(_ => twice)).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", [], [], [], TestContext.Current.CancellationToken);
         Assert.Equal(ContractNames.SourceInvalid, duplicate.Fail!.Error.Code);
     }
 
@@ -89,7 +89,7 @@ public sealed class JobRunnerTests
     {
         var reader = new FakeReader(_ => []);
         var job = Make.Job() with { Type = "write_entries" };
-        var outcome = await Runner(reader).RunAsync(job, Make.Binding("a").Sql, "pw", [], [], TestContext.Current.CancellationToken);
+        var outcome = await Runner(reader).RunAsync(job, Make.Binding("a").Sql, "pw", [], [], [], TestContext.Current.CancellationToken);
 
         Assert.Equal(ContractNames.Internal, outcome.Fail!.Error.Code);
         Assert.Equal(0, reader.Reads);
@@ -100,7 +100,7 @@ public sealed class JobRunnerTests
     {
         var reader = new FakeReader(_ => [new("SAL0042", "DIOP Awa", false, 2), new("CSS", "Caisse", false, null)]);
         var job = Make.Job(type: ContractNames.SyncPartnerAccounts);
-        var outcome = await Runner(reader).RunAsync(job, Make.Binding("a").Sql, "pw", ["4%"], ["SAL%", "CSS"], TestContext.Current.CancellationToken);
+        var outcome = await Runner(reader).RunAsync(job, Make.Binding("a").Sql, "pw", ["4%"], ["SAL%", "CSS"], [], TestContext.Current.CancellationToken);
 
         Assert.Equal("F_COMPTET", reader.LastTable);
         // Each type reads ITS filter: the tiers never get accountFilter.
@@ -117,7 +117,7 @@ public sealed class JobRunnerTests
     public async Task A_chart_sync_still_reads_F_COMPTEG_with_the_account_filter()
     {
         var reader = new FakeReader(_ => [new("42200000", "Personnel", false, 0)]);
-        await Runner(reader).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", ["4%"], ["SAL%"], TestContext.Current.CancellationToken);
+        await Runner(reader).RunAsync(Make.Job(), Make.Binding("a").Sql, "pw", ["4%"], ["SAL%"], [], TestContext.Current.CancellationToken);
 
         Assert.Equal("F_COMPTEG", reader.LastTable);
         Assert.Equal(["4%"], reader.LastFilter);
@@ -126,7 +126,7 @@ public sealed class JobRunnerTests
     [Fact]
     public async Task A_partner_filter_that_matches_nothing_fails_and_names_partnerFilter()
     {
-        var outcome = await Runner(new FakeReader(_ => [])).RunAsync(Make.Job(type: ContractNames.SyncPartnerAccounts), Make.Binding("a").Sql, "pw", [], ["9Z%"], TestContext.Current.CancellationToken);
+        var outcome = await Runner(new FakeReader(_ => [])).RunAsync(Make.Job(type: ContractNames.SyncPartnerAccounts), Make.Binding("a").Sql, "pw", [], ["9Z%"], [], TestContext.Current.CancellationToken);
 
         Assert.Null(outcome.Complete);
         Assert.Equal(ContractNames.SourceInvalid, outcome.Fail!.Error.Code);
@@ -139,9 +139,57 @@ public sealed class JobRunnerTests
     public async Task Too_many_tiers_fail_and_suggest_a_partner_filter()
     {
         var huge = Enumerable.Range(0, ContractNames.MaxAccounts + 1).Select(i => new SageAccount($"C{i:D7}", "x", false, 0)).ToList();
-        var outcome = await Runner(new FakeReader(_ => huge)).RunAsync(Make.Job(type: ContractNames.SyncPartnerAccounts), Make.Binding("a").Sql, "pw", [], [], TestContext.Current.CancellationToken);
+        var outcome = await Runner(new FakeReader(_ => huge)).RunAsync(Make.Job(type: ContractNames.SyncPartnerAccounts), Make.Binding("a").Sql, "pw", [], [], [], TestContext.Current.CancellationToken);
 
         Assert.Equal(ContractNames.SourceInvalid, outcome.Fail!.Error.Code);
         Assert.Contains("partnerFilter", outcome.Fail.Error.Message, StringComparison.Ordinal);
+    }
+
+    // ---- journalFilter (contract step 14): the journals, their own result shape -------------------------
+
+    [Fact]
+    public async Task A_journal_sync_reads_F_JOURNAUX_with_the_journal_filter_and_sends_its_own_shape()
+    {
+        var reader = new FakeReader(_ => [], _ => [new("BQ1", "Banque", false, 2, "521100"), new("OD", "Opérations diverses", false, null, null)]);
+        var job = Make.Job(type: ContractNames.SyncJournals);
+        var outcome = await Runner(reader).RunAsync(job, Make.Binding("a").Sql, "pw", ["4%"], ["SAL%"], ["BQ%", "OD"], TestContext.Current.CancellationToken);
+
+        Assert.Equal("F_JOURNAUX", reader.LastTable);
+        // Each type reads ITS filter: the journals never get accountFilter or partnerFilter.
+        Assert.Equal(["BQ%", "OD"], reader.LastFilter);
+        var result = Assert.IsType<SyncJournalsResult>(outcome.Complete!.Result);
+        Assert.Equal(ContractNames.SyncJournals, result.Type);
+        Assert.Equal(2, result.Journals.Count);
+        Assert.Equal(["BQ%", "OD"], result.AccountFilter);
+        var json = System.Text.Json.JsonSerializer.Serialize(outcome.Complete, AgentJson.Options);
+        Assert.Contains("\"type\":\"sync_journals\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"journals\":[", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"accounts\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"account\":\"521100\"", json, StringComparison.Ordinal);
+        // JO_Type and CG_Num may be NULL in Sage: the keys are still sent, as null — the contract requires them.
+        Assert.Contains("\"sageType\":null", json, StringComparison.Ordinal);
+        Assert.Contains("\"account\":null", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_journal_filter_that_matches_nothing_fails_and_names_journalFilter()
+    {
+        var outcome = await Runner(new FakeReader(_ => [])).RunAsync(Make.Job(type: ContractNames.SyncJournals), Make.Binding("a").Sql, "pw", [], [], ["ZZ%"], TestContext.Current.CancellationToken);
+
+        Assert.Null(outcome.Complete);
+        Assert.Equal(ContractNames.SourceInvalid, outcome.Fail!.Error.Code);
+        Assert.False(outcome.Fail.Retryable);
+        Assert.Contains("journalFilter", outcome.Fail.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("ZZ%", outcome.Fail.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Two_journal_codes_that_differ_only_by_case_are_one_code_twice()
+    {
+        var reader = new FakeReader(_ => [], _ => [new("BQ1", "Banque", false, 2, "521100"), new("bq1", "Banque bis", false, 2, "521100")]);
+        var outcome = await Runner(reader).RunAsync(Make.Job(type: ContractNames.SyncJournals), Make.Binding("a").Sql, "pw", [], [], [], TestContext.Current.CancellationToken);
+
+        Assert.Equal(ContractNames.SourceInvalid, outcome.Fail!.Error.Code);
+        Assert.Contains("journal", outcome.Fail.Error.Message, StringComparison.Ordinal);
     }
 }

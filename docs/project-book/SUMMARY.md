@@ -11,6 +11,7 @@
 - [Bindings and verbs](01-agent/bindings-and-verbs.md)
 - [`F_COMPTEG` — the chart of accounts, as measured](01-sage/f-compteg.md)
 - [`F_COMPTET` — the comptes tiers, as measured](01-sage/f-comptet.md)
+- [`F_JOURNAUX` — the journals, as measured](01-sage/f-journaux.md)
 
 ## 02 · Development
 

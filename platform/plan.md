@@ -515,6 +515,42 @@ proposal). Contract v0 step 13: `sync_partner_accounts`, `agent.json` › `partn
       linked in Employés. **An agent older than 0.7.0 refuses `partnerFilter` in `agent.json`** — update
       first, then add it.
 
+## Step 9d: The journals from Sage — 2026-10-29
+
+Asked by the user: « sync the journal from sage. just like general compte, have a list of journal that I
+want to send off to this platform ». The journals land in Passation comptable › Journaux, where a prêt's
+versement and a remboursement pick their treasury journal (20261028100000). Contract v0 step 14:
+`sync_journals`, `agent.json` › `journalFilter`.
+
+- [x] `F_JOURNAUX` measured on `PRESTIGE_TEXTILE` (5 journals; `JO_Type` 0/1/2/3, only type 2 carries a
+      `CG_Num`; `JO_Type` and `JO_Sommeil` NULLABLE) — `protocol.md` › « The source, as measured ».
+- [x] Platform: the job type, `agent_apply_journals` (`20261029100000`): 2 → treasury, linked to its compte
+      de trésorerie when that ERP has it and taken without one otherwise (`20261029110000`, the user: « It
+      has nothing to do for now with the compte général »), 3 → OD, the rest skipped; `pay_journal`, `kind_in_use`;
+      outside the filter → deleted unless a prêt, a remboursement, a proposal or the abandon setting names
+      it (kept, `keptInUse`); « Synchroniser depuis Sage » and the report on Journaux.
+- [x] Agent 0.8.0: `F_JOURNAUX` read, `journalFilter` read, checked and kept with the binding, the job
+      dispatched by type, the result written in its own shape (`SyncResult` + `SyncResultConverter`). Built
+      (`dist/`, MSI asserted, unsigned). The agent's fixture round trip caught a `count` key that would have
+      gone on the wire — a `[JsonIgnore]` on an abstract property does not reach its overrides.
+- [x] **Proven (2026-10-29)**: pgTAP (`agent_journal_sync.test.sql`, 27), `precheck` (2 077 tests),
+      `smoke:agent` (153), the agent's 165 tests, and the real agent in Docker against `PRESTIGE_TEXTILE` and
+      the CLI stack: a chart sync then a journal sync (1 348 accounts; 5 journals read — SQL Server's count —,
+      3 taken: 1 treasury with its account, 2 OD; achats and ventes skipped); the abandon setting on one OD
+      journal, then `"journalFilter": ["CA%"]` through `agent.json` + `apply-config` (a filter-only change):
+      1 read, the other OD removed, the abandon's kept; `["ZZ%"]` failed with its sentence, nothing touched;
+      the key removed: 5 read again, the removed one back. Journaux checked in a browser (the button through
+      the real agent, the toast, the report and the skipped list), no console error. No secret in the agent's
+      log. Not run: an agent older than 0.8.0 receiving the job (its `JobRunner` fails an unknown type).
+- [x] Self-host migrated and recorded (`20261029100000`, functions md5-identical to the CLI stack).
+- [x] 0.8.0 published on self-host (2026-10-29 10:26 UTC, by the user) — and an agent already runs it.
+- [ ] **0.8.1** published on self-host (`npm run agent:publish -- --stack=self --version=0.8.1 --yes`): the same
+      code as 0.8.0, its LISEZMOI corrected — it no longer says a treasury journal waits for the Compte général
+      (`20261029110000`). A rebuilt 0.8.0 would have been other bytes under a published number, which
+      `agent:publish` refuses. Then its release file for prod (`--stack=prod`), then the Jenkins job.
+- [ ] On the user's server: 0.8.0 installed, `journalFilter` added, a sync from Journaux. **An agent older
+      than 0.8.0 refuses `journalFilter` in `agent.json`** — update first, then add it.
+
 ## Phase 10: Against a real Sage database
 
 - [ ] Run on a machine with a real (test) Sage 100 company, not the Docker restore.

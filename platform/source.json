@@ -2,10 +2,10 @@
 	"generatedBy": "igf_payroll · npm run agent:handoff — do not edit",
 	"protocol": 0,
 	"minimumSupported": 0,
-	"contractHash": "9d1be44406cad9ff39ef1318ac1f56ca3f39d6c6fcb3581482b84f2c8dc1d6c5",
-	"sourceHash": "a6d479d86e1c4bf57d7aff98afc58008a027f692d95e0a7c5034eb67bde8e1c1",
-	"sourceCommit": "087a373",
+	"contractHash": "1558ad8974f44a943da5555e9f722e301a7a4bf806420952c73596340fc95154",
+	"sourceHash": "467b9d5635acdef74017cd8140fae3c1b3ce6668ecb14fc12748360d46d06ff7",
+	"sourceCommit": "0ac9093",
 	"sourceBranch": "b-1",
 	"sourceDirty": true,
-	"exportedAt": "2026-10-26T17:53:54.432Z"
+	"exportedAt": "2026-10-29T10:55:44.852Z"
 }
